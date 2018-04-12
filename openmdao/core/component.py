@@ -148,7 +148,9 @@ class Component(System):
 
         meta['val'] = val = self._get_initial_val(val, shape)
 
-        if is_differentiable(val) and not meta.get('pass_by_obj'):
+        meta['continuous'] = is_differentiable(val)
+
+        if not meta.get('pass_by_obj'):
             if isinstance(val, np.ndarray):
                 meta['size'] = val.size
                 meta['shape'] = val.shape
@@ -156,8 +158,8 @@ class Component(System):
                 meta['size'] = 1
                 meta['shape'] = 1
         else:
-            if not meta.get('pass_by_obj'):
-                self._pbo_warns.append((name, val))
+            #if not meta.get('pass_by_obj'):
+            #    self._pbo_warns.append((name, val))
 
             meta['size'] = 0
             meta['pass_by_obj'] = True

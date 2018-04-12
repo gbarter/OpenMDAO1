@@ -125,6 +125,10 @@ class Driver(object):
                     meta['size'] = len(meta['indices'])
                 else:
                     meta['size'] = rootmeta['size']
+
+                # Save nature of continuous variable too
+                meta['continuous'] = rootmeta['continuous']
+
                 newitem[name] = meta
 
         self._desvars = desvars
