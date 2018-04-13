@@ -44,6 +44,8 @@ class SOGADriver(Driver):
         self.supports['active_set'] = False
 
         # User Options
+        self.options.add_option('restart', False,
+                                desc='Whether to restart from previous soga.restart file')
         self.options.add_option('population', 200, lower=2.0,
                                 desc='Number of designs to carry through each generation')
         self.options.add_option('generations', 200, lower=0.0,
@@ -53,9 +55,6 @@ class SOGADriver(Driver):
         self.options.add_option('disp', True,
                                 desc='Set to False to prevent printing of Scipy '
                                 'convergence messages')
-
-        # The user places optimizer-specific settings in here.
-        self.opt_settings = OrderedDict()
 
         self.metadata = None
         self._problem = None
@@ -96,11 +95,6 @@ class SOGADriver(Driver):
         con_meta = self.get_constraint_metadata()
         self.cons = list(con_meta)
         self.con_cache = self.get_constraints()
-
-        self.opt_settings['population'] = self.options['population']
-        self.opt_settings['generations'] = self.options['generations']
-        self.opt_settings['probability_of_crossover'] = self.options['probability_of_crossover']
-        self.opt_settings['disp'] = self.options['disp']
 
         # Size Problem
         nparam = 0
@@ -149,6 +143,7 @@ class SOGADriver(Driver):
         # optimize
         self._problem = problem
         optimizer = SOGA(variables, self._objfunc, self._confunc,
+                         restart=self.options['restart'],
                          population=self.options['population'],
                          maxgen=self.options['generations'],
                          probCross=self.options['probability_of_crossover'])

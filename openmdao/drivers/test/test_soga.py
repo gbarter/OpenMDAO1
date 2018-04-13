@@ -13,10 +13,10 @@ def testCon(x):
 
 class TestSOGA(unittest.TestCase):
     def setUp(self):
-        variables = []
-        variables.append( v.FloatVariable(-1.0, 1.0) )
-        variables.append( v.IntegerVariable(0, 10) )
-        self.mysoga = soga.SOGA(variables, testObj, testCon, population=3, maxgen=2, probCross=1.0)
+        self.variables = []
+        self.variables.append( v.FloatVariable(-1.0, 1.0) )
+        self.variables.append( v.IntegerVariable(0, 10) )
+        self.mysoga = soga.SOGA(self.variables, testObj, testCon, population=3, maxgen=2, probCross=1.0)
 
     def testInit(self):
         self.mysoga._initialize()
@@ -128,6 +128,19 @@ class TestSOGA(unittest.TestCase):
         self.assertEqual(self.mysoga.obj.size, self.mysoga.npop)
         npt.assert_array_less(0.0, np.diff(self.mysoga.con)+1e-10) # Ascending
         npt.assert_array_less(0.0, np.diff(self.mysoga.obj)) # Ascending
+
+    def testRestart(self):
+        self.mysoga._initialize()
+        self.mysoga._evaluate()
+        self.mysoga._mating_selection()
+        self.mysoga._crossover()
+        self.mysoga._evaluate()
+        self.mysoga._survival_selection()
+        self.mysoga._write_restart()
+
+        soga2 = soga.SOGA(self.variables, testObj, testCon, population=3, restart=True)
+        soga2._initialize()
+        self.assertEqual(self.mysoga.x, soga2.x)
         
 def suite():
     suite = unittest.TestSuite()

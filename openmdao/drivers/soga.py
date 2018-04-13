@@ -1,10 +1,15 @@
 from __future__ import print_function
+import cPickle as pickle        
+import csv
 import numpy as np
 from variables import Variable    
-        
-        
+
+RSTFILE  = 'soga.restart'
+HISTFILE = 'soga.history'
+OUTFILE  = 'soga.out'
+
 class SOGA:
-    def __init__(self, variables, objFun, conFun, population=200, maxgen=200, probCross=0.9):
+    def __init__(self, variables, objFun, conFun, population=200, maxgen=200, probCross=0.9, restart=False):
 
         # Store list of variables and ensure type
         self.variables = variables
@@ -17,11 +22,12 @@ class SOGA:
         self.fcon = conFun
 
         # Save options (make sure population is even for pairing purposes)
-        self.ngen = maxgen
-        self.npop = population
-        if not (population%2 == 0): self.npop += 1
+        self.restart = restart
+        self.ngen    = maxgen
+        self.npop    = population
         self.pcross  = probCross
         self.pmutate = 1.0 / float(self.nvar) # NSGA2 approach
+        if not (population%2 == 0): self.npop += 1
 
         # Initialize design variable matrix
         self.x = None
@@ -39,19 +45,43 @@ class SOGA:
         self.conChild = None
         self.objChild = None
         
-        
-    def _initialize(self):
-        # Create design variable structure
-        self.x = []
-        for n in xrange(self.npop):
-            self.x.append( [None for m in xrange(self.nvar)] )
 
-        # Populate design variables
-        for k in xrange(self.nvar):
-            vals = self.variables[k].sample_lhc(self.npop)
+    def _write_restart(self):
+        with open(RSTFILE,'wb') as fp:
+            pickle.dump(self.x, fp)
+            
+    def _load_restart(self):
+        with open(RSTFILE,'rb') as fp:
+            self.x = pickle.load(fp)
 
+    def _write_output(self):
+        with open(OUTFILE, 'wb') as fcsv:
+            writer = csv.writer(fcsv, delimiter=',')
+            writer.writerow(['Popultion', self.npop])
+            writer.writerow(['Variables', self.nvar])
             for n in xrange(self.npop):
-                self.x[n][k] = vals[n]
+                writer.writerow(self.x[n])
+            writer.writerow(['Objective'])
+            writer.writerow(self.obj.tolist())
+            writer.writerow(['Constraints'])
+            writer.writerow(self.con.tolist())
+
+            
+    def _initialize(self):
+        if self.restart:
+            self._load_restart()
+        else:
+            # Create design variable structure
+            self.x = []
+            for n in xrange(self.npop):
+                self.x.append( [None for m in xrange(self.nvar)] )
+
+            # Populate design variables
+            for k in xrange(self.nvar):
+                vals = self.variables[k].sample_lhc(self.npop)
+
+                for n in xrange(self.npop):
+                    self.x[n][k] = vals[n]
                 
             
     def _evaluate(self):
@@ -129,7 +159,8 @@ class SOGA:
         inds = np.where( np.random.random((self.npop, self.nvar)) < self.pmutate)
         for n,k in zip(inds[0], inds[1]):
             self.xchild[n][k] = self.variables[k].mutate( self.xchild[n][k] )
-                    
+
+            
     def _combine(self):
         # Combine all data
         self.con = np.r_[self.con, self.conChild]
@@ -143,6 +174,7 @@ class SOGA:
         self.xchild   = None
         self.xmate    = None
 
+        
     def _rank(self):
         # Rank all designs first
         iobj     = np.argsort(self.obj)
@@ -152,7 +184,8 @@ class SOGA:
         for n in xrange(len(iobj)):
             xobj[n] = self.x[iobj[n]][:]
         self.x = xobj[:]
-            
+
+        
     def _survival_selection(self):
         self._combine()
         self._rank()
@@ -178,20 +211,39 @@ class SOGA:
         self.x   = self.x[:self.npop]
         for n in xrange(self.npop):
             self.x[n] = xobj[nextgen[n]][:]
-        
 
         
     def run(self):
+        # Setup
         self._initialize()
         self._evaluate()
 
-        iteration = 1
-        while iteration < self.ngen:
+        # Logging initialization
+        fhist = open(HISTFILE, 'w')
+        fhist.write('Iter\tObjective\t\tConstraint\n')
+        
+        # Iteration over generations
+        objHistory = np.empty((self.ngen,))
+        conHistory = np.empty((self.ngen,))
+        iteration  = 1
+        while iteration <= self.ngen:
+            # Perform evolution for this generation
             self._mating_selection()
             self._crossover()
             self._mutation()
             self._evaluate()
             self._survival_selection()
+
+            # Store and log data
+            objHistory[iteration-1] = self.obj[0]
+            conHistory[iteration-1] = self.con[0]
+            fhist.write(str(iteration)+':\t'+str(self.obj[0])+'\t'+str(self.obj[0])+'\n')
+            if (iteration%10 == 0): self._write_restart()
             iteration += 1
-            #print(iteration, self.x[0], self.obj[0], self.con[0])
+
+        # Final logging
+        fhist.close()
+        self._write_restart()
+        #self._write_output()
+        
         return (self.x[0], self.obj[0], self.con[0])
