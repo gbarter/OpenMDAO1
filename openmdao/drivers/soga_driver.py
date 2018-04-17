@@ -15,6 +15,8 @@ from openmdao.core.driver import Driver
 from openmdao.util.record_util import create_local_meta, update_local_meta
 from collections import OrderedDict
 
+_optimizers = ['SOGA']
+
 class SOGADriver(Driver):
     """ Driver wrapper for the in-house single objective genetic algorithm (SOGA), 
     based on a matlab implementation of NSGA2.  Unique to this optimizer is the support 
@@ -42,8 +44,11 @@ class SOGADriver(Driver):
         self.supports['equality_constraints'] = True
         self.supports['multiple_objectives'] = False
         self.supports['active_set'] = False
+        self.supports['gradients'] = False
 
         # User Options
+        self.options.add_option('optimizer', 'SOGA', values=_optimizers,
+                                desc='Name of optimizer to use')
         self.options.add_option('restart', False,
                                 desc='Whether to restart from previous soga.restart file')
         self.options.add_option('population', 200, lower=2.0,
@@ -60,15 +65,10 @@ class SOGADriver(Driver):
         self._problem = None
         self.result = None
         self.exit_flag = 0
-        self.grad_cache = None
         self.con_cache = None
-        self.con_idx = OrderedDict()
         self.cons = None
         self.objs = None
 
-    def _setup(self):
-        self.supports['gradients'] = False
-        super(SOGADriver, self)._setup()
 
     def run(self, problem):
         """Optimize the problem using your choice of Scipy optimizer.
@@ -104,7 +104,6 @@ class SOGADriver(Driver):
 
         # Initial Parameters
         i = 0
-        bounds = []
         variables = []
         for name, val in iteritems(self.get_desvars()):
             size = pmeta[name]['size']
@@ -112,9 +111,11 @@ class SOGADriver(Driver):
             i += size
 
             # Bounds and variable vector
-            meta_low = pmeta[name]['lower']
+            meta_low  = pmeta[name]['lower']
             meta_high = pmeta[name]['upper']
+
             meta_cont = pmeta[name]['continuous']
+
             for j in range(size):
                 
                 if isinstance(meta_low, np.ndarray):
@@ -127,7 +128,6 @@ class SOGADriver(Driver):
                 else:
                     p_high = meta_high
 
-                bounds.append((p_low, p_high))
                 variables.append( VariableChooser(val, p_low, p_high, continuous=meta_cont) )
  
         # Constraints
@@ -160,7 +160,11 @@ class SOGADriver(Driver):
         if self.options['disp']:
             print('Optimization Complete')
             print('-'*35)
-
+            print('Objective Function: ', str(fmin))
+            print('-'*35)
+            print('Cumulative Constraints: ', str(fcon))
+            print('-'*35)
+            
     def _unpack(self, x_new):
         # Pass in new parameters
         i = 0
@@ -184,12 +188,14 @@ class SOGADriver(Driver):
         float
             Value of the objective function evaluated at the new design point.
         """
-        # Unpack variables
+        # Set design variable vectors
         self._unpack(x_new)
 
+        # Update meta data
         self.iter_count += 1
         update_local_meta(self.metadata, (self.iter_count,))
 
+        # Run model
         with self.root._dircontext:
             self.root.solve_nonlinear(metadata=self.metadata)
 
@@ -198,6 +204,7 @@ class SOGADriver(Driver):
             f_new = obj
             break
 
+        # Remember constraint values so we don't have to execute again
         self.con_cache = self.get_constraints()
 
         # Record after getting obj and constraints to assure it has been
@@ -206,28 +213,30 @@ class SOGADriver(Driver):
 
         return f_new
 
+    
     def _confunc(self, x_new):
         """ Function that returns the value of the constraint function
-        requested in args. Note that this function is called for each
-        constraint, so the model is only run when the objective is evaluated.
+        requested in args. Note that this function is called once and 
+        returns a summary score for all constraints.  Constraint scores 
+        are normalized by their target values.
 
         Args
         ----
         x_new : ndarray
-            Array containing parameter values at new design point.
-        name : string
-            Name of the constraint to be evaluated.
-        idx : float
-            Contains index into the constraint array.
+            Array containing design vector values.
 
         Returns
         -------
         float
-            Value of the constraint function.
+            Summary value of the constraint functions.
         """
 
+        # Initialize summation
         consum = 0.0
+
+        # Loop over all constraints
         for name in self.constraints:
+            # Catch the double-sided addition we created at initialization
             if name.startswith('2bl-'):
                 myname = name[4:]
                 dbl_side = True
@@ -235,30 +244,42 @@ class SOGADriver(Driver):
                 myname = name
                 dbl_side = False
 
+            # Get meta data including target values
             meta = self._cons[myname]
 
+            # Get cached constraint value from when model was executed
             val  = self.con_cache[myname]
             
-            # Equality constraints
+            # Get constraint violations (defined as positive here)
             bound = meta['equals']
-            if bound is not None:
+            if bound is not None: # Equality constraints
                 temp = np.abs(bound - val)
+                norm = bound
 
             else:
-                # Note, scipy defines constraints to be satisfied when positive,
-                # which is the opposite of OpenMDAO.
+                # Inequality constraints
                 upper = meta['upper']
                 lower = meta['lower']
                 if lower is None or dbl_side:
                     temp = val - upper
+                    norm = upper
                 else:
                     temp = lower - val
+                    norm = lower
 
-            # Zero out constraint compliance
+            # Zero out constraint compliance so we don't drown out violations with excessive margin
             temp = np.maximum(temp, 0.0)
 
+            # Make relative to constraint target
+            if isinstance(norm, np.ndarray): 
+                norm[norm==0] = 1.0
+            elif norm == 0.0:
+                norm = 1.0
+            temp /= np.abs(norm)
+            
             # Add to cumulative violation score
             if isinstance(temp, np.ndarray): temp = temp.sum()
             consum += temp
-            
+
+
         return consum

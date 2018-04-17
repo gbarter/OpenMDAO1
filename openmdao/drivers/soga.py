@@ -41,9 +41,11 @@ class SOGA:
         # Initialize constraint and performance vector
         self.con = None
         self.obj = None
+        self.total = None
         
         self.conChild = None
         self.objChild = None
+        self.totalChild = None
         
 
     def _write_restart(self):
@@ -92,16 +94,23 @@ class SOGA:
             self.obj[n] = self.fobj( self.x[n] )
             self.con[n] = self.fcon( self.x[n] )
 
+        # Determine penalty
+        coeff = 10.0 ** np.ceil( np.log10(np.abs(self.obj.min())) )
+        self.total = self.obj + coeff*self.con
+        
         if not (self.xchild is None):
             self.objChild = np.inf * np.ones((self.npop,))
             self.conChild = np.inf * np.ones((self.npop,))
             for n in xrange(self.npop):
                 self.objChild[n] = self.fobj( self.xchild[n] )
                 self.conChild[n] = self.fcon( self.xchild[n] )
+                
+            self.totalChild = self.objChild + coeff*self.conChild
 
         
     def _mating_selection(self):
         # Constrained binary tournament selection from NSGA2
+        # Use total objective + constraint penalty as merit function though
         self.xmate = self.x[:]
         
         # Random tournament pairing:
@@ -111,25 +120,14 @@ class SOGA:
         for n in xrange(self.npop):
             p1   = tour1[n]
             p2   = tour2[n]
-            obj1 = self.obj[p1]
-            obj2 = self.obj[p2]
-            con1 = self.con[p1]
-            con2 = self.con[p2]
-
-            if (con1<=0.0 and con2<=0.0): # both feasible
-                if obj1 < obj2:
-                    self.xmate[n] = self.x[p1][:]
-                elif obj2 < obj1:
-                    self.xmate[n] = self.x[p2][:]
-                else:
-                    self.xmate[n] = self.x[p1][:] if np.random.rand() < 0.5 else self.x[p2][:]
+            tot1 = self.total[p1]
+            tot2 = self.total[p2]
+            if tot1 < tot2:
+                self.xmate[n] = self.x[p1][:]
+            elif tot2 < tot1:
+                self.xmate[n] = self.x[p2][:]
             else:
-                if con1 < con2:
-                    self.xmate[n] = self.x[p1][:]
-                elif con2 < con1:
-                    self.xmate[n] = self.x[p2][:]
-                else:
-                    self.xmate[n] = self.x[p1][:] if np.random.rand() < 0.5 else self.x[p2][:]
+                self.xmate[n] = self.x[p1][:] if np.random.rand() < 0.5 else self.x[p2][:]
 
                     
     def _crossover(self):
@@ -163,54 +161,41 @@ class SOGA:
             
     def _combine(self):
         # Combine all data
-        self.con = np.r_[self.con, self.conChild]
-        self.obj = np.r_[self.obj, self.objChild]
+        self.con   = np.r_[self.con  , self.conChild]
+        self.obj   = np.r_[self.obj  , self.objChild]
+        self.total = np.r_[self.total, self.totalChild]
         for n in xrange(self.npop):
             self.x.append( self.xchild[n] )
 
         # Remove child matrices
-        self.objChild = None
-        self.conChild = None
-        self.xchild   = None
-        self.xmate    = None
+        self.objChild   = None
+        self.conChild   = None
+        self.totalChild = None
+        self.xchild     = None
+        self.xmate      = None
 
         
     def _rank(self):
         # Rank all designs first
-        iobj     = np.argsort(self.obj)
-        self.obj = self.obj[iobj]
-        self.con = self.con[iobj]
-        xobj     = self.x[:]
-        for n in xrange(len(iobj)):
-            xobj[n] = self.x[iobj[n]][:]
-        self.x = xobj[:]
+        itot       = np.argsort(self.total)
+        self.total = self.total[itot]
+        self.obj   = self.obj[itot]
+        self.con   = self.con[itot]
+        xtot       = self.x[:]
+        for n in xrange(len(itot)):
+            xtot[n] = self.x[itot[n]][:]
+        self.x = xtot[:]
 
         
     def _survival_selection(self):
         self._combine()
         self._rank()
-        
-        # Cull out feasible designs first
-        feasible  = np.nonzero(self.con <= 0.0)[0]
-        nfeasible = len(feasible)
-        if nfeasible >= self.npop:
-            nextgen = feasible[:self.npop]
-        else:
-            # Append some infeasible designs
-            infeasible = np.setdiff1d(np.arange(len(self.con)), feasible)
-            # Sort these infeasible designs by closest to feasibility
-            infeasible = infeasible[ np.argsort(self.con[infeasible]) ]
-            
-            nextgen = np.r_[feasible, infeasible]
-            nextgen = nextgen[:self.npop]
 
         # Store data for next generation
-        self.obj = self.obj[nextgen]
-        self.con = self.con[nextgen]
-        xobj     = self.x[:]
-        self.x   = self.x[:self.npop]
-        for n in xrange(self.npop):
-            self.x[n] = xobj[nextgen[n]][:]
+        self.total = self.total[:self.npop]
+        self.obj   = self.obj[:self.npop]
+        self.con   = self.con[:self.npop]
+        self.x     = self.x[:self.npop]
 
         
     def run(self):
@@ -220,7 +205,7 @@ class SOGA:
 
         # Logging initialization
         fhist = open(HISTFILE, 'w')
-        fhist.write('Iter\tObjective\t\tConstraint\n')
+        fhist.write('Iter\tObjective\tConstraint\n')
         
         # Iteration over generations
         objHistory = np.empty((self.ngen,))
@@ -237,7 +222,10 @@ class SOGA:
             # Store and log data
             objHistory[iteration-1] = self.obj[0]
             conHistory[iteration-1] = self.con[0]
-            fhist.write(str(iteration)+':\t'+str(self.obj[0])+'\t'+str(self.obj[0])+'\n')
+            fhist.write(str(iteration)+':\t'+
+                        '{0:.6f}'.format(self.obj[0])+'\t'+
+                        '{0:.6f}'.format(self.con[0])+'\n')
+            fhist.flush()
             if (iteration%10 == 0): self._write_restart()
             iteration += 1
 
