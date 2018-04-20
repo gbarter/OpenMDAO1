@@ -24,6 +24,7 @@ class SOGA:
         self.fmodel = model
 
         # Save options (make sure population is even for pairing purposes)
+        self.options = {}
         self.options['restart']     = restart
         self.options['penalty']     = penalty
         self.options['generations'] = maxgen
@@ -41,9 +42,7 @@ class SOGA:
             self.xinit = xinit[:]
         else:
             raise ValueError('Initial design variable vector must be a list or numpy array')
-        self.x = []
-        for n in xrange(self.npop):
-            self.x.append( [None for m in xrange(self.nvar)] )
+        self.x = [[None]*self.nvar for n in xrange(self.npop)]
 
         # Tournament victors for mating
         self.xmate = None
@@ -61,14 +60,40 @@ class SOGA:
         self.totalChild = None
         
 
+    def _generate_population(self, npop):
+        # Initialize container
+        x = np.inf * np.ones((npop, self.nvar))
+            
+        # Populate design variables with Latin Hypercube initialization
+        for k in xrange(self.nvar):
+            x[:,k] = self.variables[k].sample_lhc(npop)
+                
+        return x.tolist()
+
+    
     def _write_restart(self):
         with open(RSTFILE,'wb') as fp:
             pickle.dump(self.x, fp)
+
             
     def _load_restart(self):
         with open(RSTFILE,'rb') as fp:
             self.x = pickle.load(fp)
 
+        # Handle improper number of population
+        if len(self.x) > self.npop:
+            self.x = self.x[:self.npop]
+        elif len(self.x) < self.npop:
+            nadd = self.npop - len(self.x)
+            xadd = self._generate_population(nadd)
+            self.x.extend( xadd )
+        assert len(self.x) == self.npop
+
+        # Handle improper number of variables: error here
+        if len(self.x[0]) != self.nvar:
+            raise ValueError('Inconsistent number of variables.  Restart file: '+str(len(self.x[0]))+'  Expected: '+str(self.nvar))
+        
+            
     def _write_output(self):
         with open(OUTFILE, 'wb') as fcsv:
             writer = csv.writer(fcsv, delimiter=',')
@@ -85,17 +110,10 @@ class SOGA:
     def _initialize(self):
         if self.options['restart']:
             self._load_restart()
-            # TODO: Handle inexact population & variables
         else:
-            # Populate design variables with Latin Hypercube initialization
-            for k in xrange(self.nvar):
-                vals = self.variables[k].sample_lhc(self.npop-1)
-
-                for n in xrange(self.npop-1):
-                    self.x[n][k] = vals[n]
-                    
             # Be sure initial state is included in population
-            self.x[-1] = self.xinit[:]
+            self.x = self._generate_population(self.npop-1)
+            self.x.append( self.xinit )
                 
     
     def _evaluate(self):
@@ -126,6 +144,7 @@ class SOGA:
             return self.x[p2][:]
         else:
             return (self.x[p1][:] if np.random.rand() < 0.5 else self.x[p2][:])
+
         
     def _mating_selection(self):
         # Constrained binary tournament selection from NSGA2
