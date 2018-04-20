@@ -38,13 +38,13 @@ class Variable(object):
         self.eta_m = 20.0 # mutation index
         
     def sample_rand(self, npts):
-        pass
+        raise NotImplementedError("Subclasses should implement this!")
     def sample_lhc(self, npts):
-        pass
+        raise NotImplementedError("Subclasses should implement this!")
     def cross(self, x1, x2):
-        pass
+        raise NotImplementedError("Subclasses should implement this!")
     def mutate(self, x):
-        pass
+        raise NotImplementedError("Subclasses should implement this!")
     def bound(self, x):
         return np.maximum(np.minimum(x, self.upper_bound), self.lower_bound)
     

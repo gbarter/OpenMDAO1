@@ -28,6 +28,7 @@ from openmdao.core.fileref import FileRef
 
 #drivers
 from openmdao.drivers.soga_driver import SOGADriver
+from openmdao.drivers.soga_driver_parallel import SOGADriverParallel
 from openmdao.drivers.scipy_optimizer import ScipyOptimizer
 try:
     from openmdao.drivers.pyoptsparse_driver import pyOptSparseDriver
