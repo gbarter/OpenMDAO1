@@ -221,6 +221,9 @@ class SOGADriver(Driver):
         conDict = self.get_constraints()
         consum  = 0.0
 
+        # Ignore some warnings
+        np.seterr(invalid='ignore')
+        
         for name in self.constraints:
             # Catch the double-sided addition we created at initialization
             if name.startswith('2bl-'):
@@ -254,7 +257,11 @@ class SOGADriver(Driver):
                     norm = lower
 
             # Zero out constraint compliance so we don't drown out violations with excessive margin
-            temp = np.maximum(temp, 0.0)
+            try:
+                temp = np.maximum(temp, 0.0)
+            except:
+                temp = norm
+                #print(name, val)
 
             # Make relative to constraint target
             if isinstance(norm, np.ndarray): 
