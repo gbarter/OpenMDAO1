@@ -74,6 +74,9 @@ class SOGADriverParallel(SOGADriver, SOGA):
         # Optimize
         xresult, fmin, fcon = self.optimize()
 
+        # Store results locally
+        fmin,fcon = self._model(xresult)
+
         # Process results (same as parent class)
         self.postrun(xresult, fmin, fcon)
 

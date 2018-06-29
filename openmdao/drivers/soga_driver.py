@@ -123,14 +123,14 @@ class SOGADriver(Driver):
         self.nvar = len(self.variables)
 
         # Constraints
-        self.constraints = []
+        self.constraints = {}
         i = 0
         for name, meta in con_meta.items():
-            self.constraints.append(name)
+            self.constraints[name] = 0.0
             dblcon = meta['upper'] is not None and meta['lower'] is not None
             if dblcon:
                 name = '2bl-' + name
-                self.constraints.append(name)
+                self.constraints[name] = 0.0
 
         return x_init
 
@@ -150,7 +150,10 @@ class SOGADriver(Driver):
             print('-'*35)
             print('Cumulative Constraints: ', str(fcon))
             print('-'*35)
-
+            print('Constraint vals:')
+            col_width = max(len(m) for m in self.constraints.keys()) 
+            for k in self.constraints.keys():
+                print(''.join(k.ljust(col_width)),''.join(str(self.constraints[k])))
             
     def run(self, problem):
         """Optimize the problem
@@ -172,6 +175,9 @@ class SOGADriver(Driver):
                          maxgen=self.options['generations'],
                          probCross=self.options['probability_of_crossover'])
         xresult, fmin, fcon = optimizer.optimize()
+
+        # Store results locally
+        fmin,fcon = self._model(xresult)
 
         # Process results
         self.postrun(xresult, fmin, fcon)
@@ -224,7 +230,7 @@ class SOGADriver(Driver):
         # Ignore some warnings
         np.seterr(invalid='ignore')
         
-        for name in self.constraints:
+        for name in self.constraints.keys():
             # Catch the double-sided addition we created at initialization
             if name.startswith('2bl-'):
                 myname = name[4:]
@@ -272,6 +278,7 @@ class SOGADriver(Driver):
             
             # Add to cumulative violation score
             if isinstance(temp, np.ndarray): temp = temp.sum()
+            self.constraints[name] = temp
             consum += temp
         
         # Record after getting obj and constraints to assure it has been
