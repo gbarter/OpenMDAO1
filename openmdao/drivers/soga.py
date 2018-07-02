@@ -276,7 +276,7 @@ class SOGA:
         objHistory = []
         conHistory = []
         iteration  = 1
-        nconverge  = 15
+        nconverge  = 40
         nround     = int( np.round(np.abs(np.log10(self.options['tol']))) )
 
         def convtest(x):
