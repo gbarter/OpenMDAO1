@@ -59,7 +59,7 @@ class SOGADriverParallel(SOGADriver, SOGA):
         
     def run(self, problem):
         # Same prep as parent class
-        self.xinit = self.prerun(problem)
+        self.xinit = self._prerun(problem)
                 
         # SOGA specific prep
         self.pmutate = 1.0 / float(self.nvar) # NSGA2 approach
@@ -78,7 +78,7 @@ class SOGADriverParallel(SOGADriver, SOGA):
         fmin,fcon = self._model(xresult)
 
         # Process results (same as parent class)
-        self.postrun(xresult, fmin, fcon)
+        self._postrun(xresult, fmin, fcon)
 
                 
 

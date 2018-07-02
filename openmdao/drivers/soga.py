@@ -4,10 +4,12 @@ import csv
 import numpy as np
 from variables import Variable    
 import time
+import logging
+import sys
 
-RSTFILE  = 'soga.restart'
-HISTFILE = 'soga.history'
-OUTFILE  = 'soga.out'
+RSTFILE = 'soga.restart'
+LOGFILE = 'soga.log'
+LOGNAME = 'mylogger'
 
 class SOGA:
     def __init__(self, variables, xinit, model,
@@ -23,6 +25,10 @@ class SOGA:
         # Store objective and constraint functions
         self.fmodel = model
 
+        # Logging instance
+        self.logger = logging.getLogger(LOGNAME)
+        self.logger.setLevel(logging.DEBUG)
+        
         # Save options (make sure population is even for pairing purposes)
         self.options = {}
         self.options['restart']     = restart
@@ -93,18 +99,6 @@ class SOGA:
         if len(self.x[0]) != self.nvar:
             raise ValueError('Inconsistent number of variables.  Restart file: '+str(len(self.x[0]))+'  Expected: '+str(self.nvar))
         
-            
-    def _write_output(self):
-        with open(OUTFILE, 'wb') as fcsv:
-            writer = csv.writer(fcsv, delimiter=',')
-            writer.writerow(['Popultion', self.npop])
-            writer.writerow(['Variables', self.nvar])
-            for n in xrange(self.npop):
-                writer.writerow(self.x[n])
-            writer.writerow(['Objective'])
-            writer.writerow(self.obj.tolist())
-            writer.writerow(['Constraints'])
-            writer.writerow(self.con.tolist())
 
             
     def _initialize(self):
@@ -275,13 +269,12 @@ class SOGA:
         self._evaluate()
 
         # Logging initialization
-        fhist = open(HISTFILE, 'w')
-        fhist.write('Iter\tObjective\t\tConstraint\n')
+        self.logger.info('Iter\tTime\tObjective\t\tConstraint')
         
         # Iteration over generations
         ngen       = self.options['generations']
-        objHistory = np.empty((ngen,))
-        conHistory = np.empty((ngen,))
+        objHistory = []
+        conHistory = []
         iteration  = 1
         nconverge  = 15
         nround     = int( np.round(np.abs(np.log10(self.options['tol']))) )
@@ -289,7 +282,7 @@ class SOGA:
         def convtest(x):
             return (np.round(np.sum(np.diff(x[-nconverge:])), nround) == 0.0)
 
-        while iteration <= ngen:
+        for k_iter in range(ngen):
             t = time.time()
         
             # Perform evolution for this generation
@@ -299,30 +292,27 @@ class SOGA:
             self._evaluate()
             self._survival_selection()
 
-            # Logging
-            fhist.write(str(iteration)+':\t'+
-                        '{0:.6f}'.format(self.obj[0])+'\t\t'+
-                        '{0:.6f}'.format(self.con[0])+'\n')
-            fhist.flush()
-            if (iteration%10 == 0): self._write_restart()
-            if self.options['disp']:
-                print('Generation,',iteration,'complete.  Elapsed:', np.round(time.time() - t,2),'seconds')
-
             # Store in history
-            objHistory[iteration-1] = self.obj[0]
-            conHistory[iteration-1] = self.con[0]
+            objHistory.append( self.obj[0] )
+            conHistory.append( self.con[0] )
+            
+            # Logging
+            self.logger.info(str(k_iter)+':\t'+
+                             '{0:.3f}'.format(time.time() - t)+'\t'+
+                             '{0:.6f}'.format(self.obj[0])+'\t\t'+
+                             '{0:.6f}'.format(self.con[0]))
+
+            if (k_iter%10 == 0): self._write_restart()
 
             # Check for convergence
-            if ( (iteration > nconverge) and
+            if ( (k_iter > nconverge) and
                  convtest(objHistory) and convtest(conHistory) ):
+                print(objHistory[-nconverge:])
+                print(conHistory[-nconverge:])
                 break
-
-            # Increment counter
-            iteration += 1
+            
 
         # Final logging
-        fhist.close()
         self._write_restart()
-        #self._write_output()
         
         return (self.x[0], self.obj[0], self.con[0])

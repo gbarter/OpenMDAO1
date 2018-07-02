@@ -8,11 +8,14 @@ from six import itervalues, iteritems
 from six.moves import range
 
 import numpy as np
-from soga import SOGA
+from soga import SOGA, LOGNAME, LOGFILE
 from variables import VariableChooser
 
 from openmdao.core.driver import Driver
 from openmdao.util.record_util import create_local_meta, update_local_meta
+
+import logging
+import sys
 
 _optimizers = ['SOGA']
 
@@ -70,8 +73,17 @@ class SOGADriver(Driver):
         self.metadata  = None
         self.exit_flag = 0
 
+        # Initialize log-file
+        logging.basicConfig(format='%(message)s',filemode='w')
+        self.logger = logging.getLogger(LOGNAME)
+        for handler in self.logger.handlers[:]:
+            self.logger.removeHandler(handler)        
+        self.logger.addHandler(logging.FileHandler(LOGFILE))
+        #self.logger.addHandler(logging.StreamHandler(sys.stdout))
+        self.logger.setLevel(logging.DEBUG)
         
-    def prerun(self, problem):
+        
+    def _prerun(self, problem):
 
         # Metadata Setup
         #opt = self.options['optimizer']
@@ -135,7 +147,7 @@ class SOGADriver(Driver):
         return x_init
 
     
-    def postrun(self, xresult, fmin, fcon):
+    def _postrun(self, xresult, fmin, fcon):
         # Re-run optimal point so that framework is left in the right final state
         self._unpack(xresult)
         with self.root._dircontext:
@@ -144,16 +156,16 @@ class SOGADriver(Driver):
         self.exit_flag = 1
 
         if self.options['disp']:
-            print('Optimization Complete')
-            print('-'*35)
-            print('Objective Function: ', str(fmin))
-            print('-'*35)
-            print('Cumulative Constraints: ', str(fcon))
-            print('-'*35)
-            print('Constraint vals:')
+            self.logger.info('Optimization Complete')
+            self.logger.info('-'*35)
+            self.logger.info('Objective Function: '+str(fmin))
+            self.logger.info('-'*35)
+            self.logger.info('Cumulative Constraints: '+str(fcon))
+            self.logger.info('-'*35)
+            self.logger.info('Constraint valuess:')
             col_width = max(len(m) for m in self.constraints.keys()) 
             for k in self.constraints.keys():
-                print(''.join(k.ljust(col_width)),''.join(str(self.constraints[k])))
+                self.logger.info(''.join(k.ljust(col_width)) + '\t' + ''.join(str(self.constraints[k])))
             
     def run(self, problem):
         """Optimize the problem
@@ -164,10 +176,10 @@ class SOGADriver(Driver):
             Our parent `Problem`.
         """
         # Prep and get initial starting design
-        x_init = self.prerun(problem)
+        x_init = self._prerun(problem)
         
         # Optimize
-        optimizer = SOGA(self.variables, x_init, self._model,
+        optimizer = SOGA(self.variables, x_init, self._model, 
                          tol=self.options['tol'],
                          restart=self.options['restart'],
                          penalty=self.options['penalty'],
@@ -180,7 +192,7 @@ class SOGADriver(Driver):
         fmin,fcon = self._model(xresult)
 
         # Process results
-        self.postrun(xresult, fmin, fcon)
+        self._postrun(xresult, fmin, fcon)
 
         
     def _unpack(self, x_new):
@@ -267,7 +279,6 @@ class SOGADriver(Driver):
                 temp = np.maximum(temp, 0.0)
             except:
                 temp = norm
-                #print(name, val)
 
             # Make relative to constraint target
             if isinstance(norm, np.ndarray): 
