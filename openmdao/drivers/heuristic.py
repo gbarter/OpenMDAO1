@@ -12,8 +12,9 @@ LOGFILE = 'heuristic.log'
 LOGNAME = 'mylogger'
 
 class Heuristic(object):
-    def __init__(self, variables, xinit, model, options):
-
+    def __init__(self, variables=None, xinit=None, model=None, options=None):
+        object.__init__(self) # Don't user "super" because of multiple inheritance issues later
+        
         # Store list of variables and ensure type
         self.variables = variables
         self.nvar      = len(variables)

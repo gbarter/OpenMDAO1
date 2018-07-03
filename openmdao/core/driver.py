@@ -28,7 +28,7 @@ class Driver(object):
     """
 
     def __init__(self):
-        super(Driver, self).__init__()
+        object.__init__(self) # don't use super because of multiple inheritance confusion later
         self.recorders = RecordingManager()
 
         # What this driver supports

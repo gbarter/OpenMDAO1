@@ -41,7 +41,7 @@ class HeuristicDriver(Driver):
     """
 
     def __init__(self):
-        super(HeuristicDriver, self).__init__()
+        Driver.__init__(self) # don't use super because of multiple inheritance confusion later
 
         # What we support
         self.supports['inequality_constraints'] = True
@@ -89,6 +89,7 @@ class HeuristicDriver(Driver):
 
         self.variables = None
         self.nvar      = None
+        self.npop      = None
         self.metadata  = None
         self.exit_flag = 0
 
@@ -105,8 +106,8 @@ class HeuristicDriver(Driver):
     def _prerun(self, problem):
 
         # Metadata Setup
-        #opt = self.options['optimizer']
-        self.metadata = create_local_meta(None, 'SOGA') #opt
+        opt = self.options['optimizer']
+        self.metadata = create_local_meta(None, opt)
         self.iter_count = 0
         update_local_meta(self.metadata, (self.iter_count,))
 
@@ -163,6 +164,14 @@ class HeuristicDriver(Driver):
                 name = '2bl-' + name
                 self.constraints[name] = 0.0
 
+        # Check other options
+        if not (self.options['population']%2 == 0):
+            self.options['population'] += 1 # Need an even number for GA
+        self.npop = self.options['population']
+        
+        if self.options['probability_of_mutation'] < 0.0:
+            self.options['probability_of_mutation'] = 1.0 / float(self.nvar) # NSGA2 approach
+                
         return x_init
 
     

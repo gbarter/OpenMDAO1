@@ -4,15 +4,11 @@ from variables import Variable
 from heuristic import Heuristic
 
 class SOGA(Heuristic):
-    def __init__(self, variables, xinit, model, options):
-        super(SOGA, self).__init__(variables, xinit, model, options)
-        
-        # Added options
-        if self.options['probability_of_mutation'] < 0.0:
-            self.options['probability_of_mutation'] = 1.0 / float(self.nvar) # NSGA2 approach
-        if not (self.options['population']%2 == 0): self.npop += 1
+    def __init__(self, variables=None, xinit=None, model=None, options=None):
+        Heuristic.__init__(self, variables, xinit, model, options) # don't use super because of multiple inheritance confusion later
 
         # Offspring
+        self.xmate      = None
         self.xchild     = None
         self.conChild   = np.inf * np.ones(self.npop)
         self.objChild   = np.inf * np.ones(self.npop)

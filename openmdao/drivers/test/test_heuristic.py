@@ -94,7 +94,7 @@ class TestSOGA(unittest.TestCase):
         self.variables.append( v.FloatVariable(-1.0, 1.0) )
         self.variables.append( v.IntegerVariable(0, 10) )
         self.options = {}
-        self.options['population'] = 3
+        self.options['population'] = 4
         self.options['generations'] = 2
         self.options['tolerance'] = 1e-6
         self.options['restart'] = False

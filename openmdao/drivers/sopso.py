@@ -4,8 +4,8 @@ from variables import Variable
 from heuristic import Heuristic
 
 class SOPSO(Heuristic):
-    def __init__(self, variables, xinit, model, options):
-        super(SOPSO, self).__init__(variables, xinit, model, options)
+    def __init__(self, variables=None, xinit=None, model=None, options=None):
+        Heuristic.__init__(self, variables, xinit, model, options) # don't use super because of multiple inheritance confusion later
 
         # Local bests and velocity
         self.xlocal     = [[None]*self.nvar for n in range(self.npop)]
