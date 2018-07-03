@@ -8,11 +8,11 @@ import numpy as np
 
 # SOGA Additions
 from soga import SOGA
-from soga_driver import SOGADriver
+from heuristic_driver import HeuristicDriver
 import multiprocessing as mp
 
 
-class SOGADriverParallel(SOGADriver, SOGA):
+class SOGADriverParallel(HeuristicDriver, SOGA):
     """ Driver wrapper for the in-house single objective genetic algorithm (SOGA), 
     based on a matlab implementation of NSGA2.  Unique to this optimizer is the support 
     of continuous, discrete, and binary (boolean) design variables, in addition to 
@@ -68,8 +68,8 @@ class SOGADriverParallel(SOGADriver, SOGA):
 
         # Initialize design vector list of lists
         self.x = []
-        for n in xrange(self.npop):
-            self.x.append( [None for m in xrange(self.nvar)] )
+        for n in range(self.npop):
+            self.x.append( [None for m in range(self.nvar)] )
 
         # Optimize
         xresult, fmin, fcon = self.optimize()
@@ -109,13 +109,13 @@ class SOGADriverParallel(SOGADriver, SOGA):
         #num_procs = 3 #mp.cpu_count()
 
         temp = []
-        for c in xrange(self.npop):
+        for c in range(self.npop):
             self._unpack(self.x[c])
             p = mp.Process(target=self, args=(c,results))
             temp.append( p )
             p.start()
         for p in temp: p.join()
-        for n in xrange(self.npop):
+        for n in range(self.npop):
             try:
                 self.obj[n] = results[n][0]
                 self.con[n] = results[n][1]
@@ -128,13 +128,13 @@ class SOGADriverParallel(SOGADriver, SOGA):
         if not (self.xchild is None):
             results = manager.dict()
             temp = []
-            for c in xrange(self.npop):
+            for c in range(self.npop):
                 self._unpack(self.xchild[c])
                 p = mp.Process(target=self, args=(c,results))
                 temp.append( p )
                 p.start()
             for p in temp: p.join()
-            for n in xrange(self.npop):
+            for n in range(self.npop):
                 try:
                     self.objChild[n] = results[n][0]
                     self.conChild[n] = results[n][1]

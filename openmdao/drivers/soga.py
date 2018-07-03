@@ -1,134 +1,30 @@
 from __future__ import print_function
-import cPickle as pickle        
-import csv
 import numpy as np
 from variables import Variable    
-import time
-import logging
-import sys
+from heuristic import Heuristic
 
-RSTFILE = 'soga.restart'
-LOGFILE = 'soga.log'
-LOGNAME = 'mylogger'
-
-class SOGA:
-    def __init__(self, variables, xinit, model,
-                 population=200, maxgen=200, probCross=0.9,
-                 restart=False, penalty=True, tol=1e-6):
-
-        # Store list of variables and ensure type
-        self.variables = variables
-        self.nvar      = len(variables)
-        assert isinstance(variables, list)
-        assert isinstance(variables[0], Variable)
-
-        # Store objective and constraint functions
-        self.fmodel = model
-
-        # Logging instance
-        self.logger = logging.getLogger(LOGNAME)
-        self.logger.setLevel(logging.DEBUG)
+class SOGA(Heuristic):
+    def __init__(self, variables, xinit, model, options):
+        super(SOGA, self).__init__(variables, xinit, model, options)
         
-        # Save options (make sure population is even for pairing purposes)
-        self.options = {}
-        self.options['restart']     = restart
-        self.options['penalty']     = penalty
-        self.options['generations'] = maxgen
-        self.options['disp']        = True
-        self.options['tol']         = tol
-        self.options['probability_of_crossover']  = probCross
-        self.npop    = population
-        self.pmutate = 1.0 / float(self.nvar) # NSGA2 approach
-        if not (population%2 == 0): self.npop += 1
-
-        # Initialize design variable matrix
-        if isinstance(xinit, np.ndarray):
-            self.xinit = xinit.tolist()
-        elif isinstance(xinit, list):
-            self.xinit = xinit[:]
-        else:
-            raise ValueError('Initial design variable vector must be a list or numpy array')
-        self.x = [[None]*self.nvar for n in xrange(self.npop)]
-
-        # Tournament victors for mating
-        self.xmate = None
+        # Added options
+        if self.options['probability_of_mutation'] < 0.0:
+            self.options['probability_of_mutation'] = 1.0 / float(self.nvar) # NSGA2 approach
+        if not (self.options['population']%2 == 0): self.npop += 1
 
         # Offspring
-        self.xchild = None
+        self.xchild     = None
+        self.conChild   = np.inf * np.ones(self.npop)
+        self.objChild   = np.inf * np.ones(self.npop)
+        self.totalChild = np.inf * np.ones(self.npop)
 
-        # Initialize constraint and performance vector
-        self.con = None
-        self.obj = None
-        self.total = None
-        
-        self.conChild = None
-        self.objChild = None
-        self.totalChild = None
-        
-
-    def _generate_population(self, npop):
-        # Initialize container
-        x = np.inf * np.ones((npop, self.nvar))
-            
-        # Populate design variables with Latin Hypercube initialization
-        for k in xrange(self.nvar):
-            x[:,k] = self.variables[k].sample_lhc(npop)
-                
-        return x.tolist()
-
-    
-    def _write_restart(self):
-        with open(RSTFILE,'wb') as fp:
-            pickle.dump(self.x, fp)
-
-            
-    def _load_restart(self):
-        with open(RSTFILE,'rb') as fp:
-            self.x = pickle.load(fp)
-
-        # Handle improper number of population
-        if len(self.x) > self.npop:
-            self.x = self.x[:self.npop]
-        elif len(self.x) < self.npop:
-            nadd = self.npop - len(self.x)
-            xadd = self._generate_population(nadd)
-            self.x.extend( xadd )
-        assert len(self.x) == self.npop
-
-        # Handle improper number of variables: error here
-        if len(self.x[0]) != self.nvar:
-            raise ValueError('Inconsistent number of variables.  Restart file: '+str(len(self.x[0]))+'  Expected: '+str(self.nvar))
-        
-
-            
-    def _initialize(self):
-        if self.options['restart']:
-            self._load_restart()
-        else:
-            # Be sure initial state is included in population
-            self.x = self._generate_population(self.npop-1)
-            self.x.append( self.xinit )
-                
     
     def _evaluate(self):
-        # Initialize outputs
-        self.obj = np.inf * np.ones((self.npop,))
-        self.con = np.inf * np.ones((self.npop,))
-        self.objChild = np.inf * np.ones((self.npop,))
-        self.conChild = np.inf * np.ones((self.npop,))
+        super(SOGA, self)._evaluate()
 
-        for n in xrange(self.npop):
-            self.obj[n], self.con[n] = self.fmodel( self.x[n] )
-
-        # Determine penalty
-        coeff = 10.0 ** np.ceil( np.log10(np.abs(self.obj.min())) )
-        self.total = self.obj + coeff*self.con
-        
+        # Now add children
         if not (self.xchild is None):
-            for n in xrange(self.npop):
-                self.objChild[n], self.conChild[n] = self.fmodel( self.xchild[n] )
-                
-        self.totalChild = self.objChild + coeff*self.conChild
+            self.objChild, self.conChild, self.totalChild = self._evaluate_input(self.xchild)
 
 
     def _mating_options(self, p1, p2, obj1, obj2):
@@ -149,7 +45,7 @@ class SOGA:
         tour1 = np.random.permutation(self.npop)
         tour2 = np.random.permutation(self.npop)
 
-        for n in xrange(self.npop):
+        for n in range(self.npop):
             p1   = tour1[n]
             p2   = tour2[n]
             obj1 = self.obj[p1]
@@ -171,12 +67,16 @@ class SOGA:
 
                     
     def _crossover(self):
+        # Constants
+        pcross = self.options['probability_of_crossover']
+        eta_c  = self.options['crossover_index']
+        
         # Every 2 parents have 2 children, so matrices are same size
         self.xchild = self.xmate[:]
         parents = np.random.permutation(self.npop)
         p1 = parents[0::2]
         p2 = parents[1::2]
-        for n in xrange(len(p1)):
+        for n in range(len(p1)):
             # Initialize parents and child design variables
             x1 = self.xmate[p1[n]][:]
             x2 = self.xmate[p2[n]][:]
@@ -184,9 +84,9 @@ class SOGA:
             y2 = x2[:]
 
             # Do crossover variable by variables
-            if np.random.rand() < self.options['probability_of_crossover']:
-                for k in xrange(self.nvar):
-                    y1[k], y2[k] = self.variables[k].cross(x1[k], x2[k])
+            if np.random.rand() < pcross:
+                for k in range(self.nvar):
+                    y1[k], y2[k] = self.variables[k].cross(x1[k], x2[k], eta_c)
                         
             # Store child values
             self.xchild[p1[n]] = y1[:]
@@ -194,9 +94,13 @@ class SOGA:
 
             
     def _mutation(self):
-        inds = np.where( np.random.random((self.npop, self.nvar)) < self.pmutate)
+        # Constants
+        pmutate = self.options['probability_of_mutation']
+        eta_m   = self.options['mutation_index']
+        
+        inds = np.where( np.random.random((self.npop, self.nvar)) < pmutate)
         for n,k in zip(inds[0], inds[1]):
-            self.xchild[n][k] = self.variables[k].mutate( self.xchild[n][k] )
+            self.xchild[n][k] = self.variables[k].mutate( self.xchild[n][k], eta_m )
 
             
     def _combine(self):
@@ -217,18 +121,6 @@ class SOGA:
         self.totalChild = None
         self.xchild     = None
         self.xmate      = None
-
-        
-    def _rank(self):
-        # Rank all designs first
-        isort = np.argsort(self.total) if self.options['penalty'] else np.argsort(self.obj)
-        self.total = self.total[isort]
-        self.obj   = self.obj[isort]
-        self.con   = self.con[isort]
-        xobj       = self.x[:]
-        for n in xrange(len(isort)):
-            xobj[n] = self.x[isort[n]][:]
-        self.x = xobj[:]
 
         
     def _survival_selection(self):
@@ -259,60 +151,18 @@ class SOGA:
         self.con   = self.con[nextgen]
         xobj       = self.x[:]
         self.x     = self.x[:self.npop]
-        for n in xrange(self.npop):
+        for n in range(self.npop):
             self.x[n] = xobj[nextgen[n]][:]
 
-        
-    def optimize(self):
-        # Setup
-        self._initialize()
+        # Store the best performers
+        self.objGlobal   = self.obj[0]
+        self.conGlobal   = self.con[0]
+        self.totalGlobal = self.total[0]
+        self.xglobal     = self.x[0][:]
+            
+    def _iterate(self, kiter):
+        self._mating_selection()
+        self._crossover()
+        self._mutation()
         self._evaluate()
-
-        # Logging initialization
-        self.logger.info('Iter\tTime\tObjective\t\tConstraint')
-        
-        # Iteration over generations
-        ngen       = self.options['generations']
-        objHistory = []
-        conHistory = []
-        iteration  = 1
-        nconverge  = 40
-        nround     = int( np.round(np.abs(np.log10(self.options['tol']))) )
-
-        def convtest(x):
-            return (np.round(np.sum(np.diff(x[-nconverge:])), nround) == 0.0)
-
-        for k_iter in range(ngen):
-            t = time.time()
-        
-            # Perform evolution for this generation
-            self._mating_selection()
-            self._crossover()
-            self._mutation()
-            self._evaluate()
-            self._survival_selection()
-
-            # Store in history
-            objHistory.append( self.obj[0] )
-            conHistory.append( self.con[0] )
-            
-            # Logging
-            self.logger.info(str(k_iter)+':\t'+
-                             '{0:.3f}'.format(time.time() - t)+'\t'+
-                             '{0:.6f}'.format(self.obj[0])+'\t\t'+
-                             '{0:.6f}'.format(self.con[0]))
-
-            if (k_iter%10 == 0): self._write_restart()
-
-            # Check for convergence
-            if ( (k_iter > nconverge) and
-                 convtest(objHistory) and convtest(conHistory) ):
-                print(objHistory[-nconverge:])
-                print(conHistory[-nconverge:])
-                break
-            
-
-        # Final logging
-        self._write_restart()
-        
-        return (self.x[0], self.obj[0], self.con[0])
+        self._survival_selection()

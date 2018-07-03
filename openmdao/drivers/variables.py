@@ -10,6 +10,9 @@ real_types = tuple(real_types)
 int_types = tuple(int_types)
 bool_types = (bool, np.bool_)
 
+f2b = lambda y: True if y>=0.5 else False
+b2f = lambda y: 1.0 if y else 0.0
+
 def VariableChooser(val, p_low, p_high, continuous=True):
     if isinstance(val, np.ndarray) or isinstance(val, list) or isinstance(val, tuple):
         val = val[0]
@@ -34,19 +37,29 @@ class Variable(object):
     def __init__(self, low=None, high=None):
         self.lower_bound = low
         self.upper_bound = high
-        self.eta_c = 10.0 # crossover index
-        self.eta_m = 20.0 # mutation index
+        self.acognitive = 0.5 # cognitive attractioin (local)
+        self.asocial    = 1.25 # social attractioin (local)
         
     def sample_rand(self, npts):
         raise NotImplementedError("Subclasses should implement this!")
     def sample_lhc(self, npts):
         raise NotImplementedError("Subclasses should implement this!")
-    def cross(self, x1, x2):
+    def cross(self, x1, x2, eta_c):
         raise NotImplementedError("Subclasses should implement this!")
-    def mutate(self, x):
+    def mutate(self, x, eta_m):
         raise NotImplementedError("Subclasses should implement this!")
+
+    def velocity_update(self, x, xL, xG, cL, cG):
+        r  = np.random.random((2,1))
+        dV = cL*r[0]*(xL - x) + cG*r[1]*(xG - x)
+        return dV
+
+    def position_update(self, x, v):
+        return self.bound( x+v )
+    
     def bound(self, x):
         return np.maximum(np.minimum(x, self.upper_bound), self.lower_bound)
+
     
 class BooleanVariable(Variable):
     def __init__(self):
@@ -60,18 +73,26 @@ class BooleanVariable(Variable):
         np.random.shuffle(y)
         return y
 
-    def cross(self, x1, x2):
+    def cross(self, x1, x2, eta_c):
         assert isinstance(x1, bool)
         assert isinstance(x2, bool)
         y1 = x1 and x2
         y2 = x1 or  x2
         return y1, y2
     
-    def mutate(self, x):
+    def mutate(self, x, eta_m):
         assert isinstance(x, bool)
         return (not x)
 
+    def velocity_update(self, x, xL, xG, cL, cG):
+        dV = super(BooleanVariable, self).velocity_update(b2f(x), b2f(xL), b2f(xG), cL, cG)
+        return dV
 
+    def position_update(self, x, v):
+        return f2b( b2f(x)+v )
+    
+
+    
 class FloatVariable(Variable):
     def __init__(self, low=None, high=None):
         super(FloatVariable, self).__init__(low=low, high=high)
@@ -86,7 +107,7 @@ class FloatVariable(Variable):
         np.random.shuffle( probPoints )
         return inverseUniformCDF(probPoints, self.lower_bound, self.upper_bound)
 
-    def cross(self, x1, x2):
+    def cross(self, x1, x2, eta_c):
         y1 = self.bound( min(x1, x2) )
         y2 = self.bound( max(x1, x2) )
         if y1 == y2: return y1, y2
@@ -99,12 +120,12 @@ class FloatVariable(Variable):
 
         def betaq(dy):
             beta  = 1.0 + (2.0*dy / (y2-y1))
-            alpha = 2.0 - beta**(-(self.eta_c+1.0))
+            alpha = 2.0 - beta**(-(eta_c+1.0))
             rand_var = np.random.rand()
             if rand_var <= (1.0/alpha):
-                betaq = (rand_var*alpha)**(1.0/(self.eta_c+1.0))
+                betaq = (rand_var*alpha)**(1.0/(eta_c+1.0))
             else:
-                betaq = (1.0/(2.0 - rand_var*alpha))**(1.0/(self.eta_c+1.0))
+                betaq = (1.0/(2.0 - rand_var*alpha))**(1.0/(eta_c+1.0))
             return betaq
 
         betaq1 = betaq(y1-yl)
@@ -120,7 +141,7 @@ class FloatVariable(Variable):
             return c2, c1
 
         
-    def mutate(self, x):
+    def mutate(self, x, eta_m):
         # From NSGA2
         y  = x
         yl = self.lower_bound
@@ -129,18 +150,19 @@ class FloatVariable(Variable):
         delta1 = (y-yl) / (yu-yl)
         delta2 = (yu-y) / (yu-yl)
         rand_var = np.random.rand()
-        mut_pow = 1.0 / (self.eta_m + 1.0)
+        mut_pow = 1.0 / (eta_m + 1.0)
         if rand_var <= 0.5:
             xy     = 1.0 - delta1;
-            val    = 2.0*rand_var + (1.0 - 2.0*rand_var) * xy**(self.eta_m+1.0)
+            val    = 2.0*rand_var + (1.0 - 2.0*rand_var) * xy**(eta_m+1.0)
             deltaq = val**mut_pow - 1.0
         else:
             xy     = 1.0 - delta2
-            val    = 2.0*(1.0 - rand_var) + 2.0*(rand_var-0.5) * xy**(self.eta_m+1.0)
+            val    = 2.0*(1.0 - rand_var) + 2.0*(rand_var-0.5) * xy**(eta_m+1.0)
             deltaq = 1.0 - val**mut_pow
 
         y = y + deltaq*(yu - yl)
         return self.bound(y)
+
     
     
 class IntegerVariable(Variable):
@@ -157,7 +179,7 @@ class IntegerVariable(Variable):
         np.random.shuffle( probPoints )
         return allvals[ probPoints ]
 
-    def cross(self, x1, x2):
+    def cross(self, x1, x2, eta_c):
         y1 = int( self.bound( min(x1, x2) ))
         y2 = int( self.bound( max(x1, x2) ))
         if y1 == y2: return y1, y2
@@ -168,7 +190,7 @@ class IntegerVariable(Variable):
         else:
             return c2, c1
 
-    def mutate(self, x):
+    def mutate(self, x, eta_m):
         y  = x
         yl = self.lower_bound
         yu = self.upper_bound
@@ -184,3 +206,5 @@ class IntegerVariable(Variable):
             dy = min(dy, du)
         y += dy
         return int(np.round(y))
+
+    
