@@ -171,8 +171,6 @@ class Heuristic(object):
             # Check for convergence
             if ( (k_iter > nconverge) and
                  convtest(objHistory) and convtest(conHistory) ):
-                print(objHistory[-nconverge:])
-                print(conHistory[-nconverge:])
                 break
             
 
