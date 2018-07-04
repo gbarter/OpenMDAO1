@@ -80,9 +80,9 @@ class HeuristicDriver(Driver):
         # PSO options
         self.options.add_option('cognitive_attraction', 0.5, lower=0.0, upper=5.0,
                                 desc='Attraction of a particle to its personal best')
-        self.options.add_option('social_attraction', 1.25, lower=0.0, upper=5.0,
+        self.options.add_option('social_attraction', 0.7, lower=0.0, upper=5.0,
                                 desc='Attraction of a particle to the global swarm best')
-        self.options.add_option('upper_inertia', 0.9, lower=0.0, upper=1.0,
+        self.options.add_option('upper_inertia', 1.0, lower=0.0, upper=1.0,
                                 desc='Maximum particle inertia that resists velocity change')
         self.options.add_option('lower_inertia', 0.4, lower=0.0, upper=1.0,
                                 desc='Minimum particle inertia that resists velocity change')
