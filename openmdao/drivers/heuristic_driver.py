@@ -66,11 +66,13 @@ class HeuristicDriver(Driver):
                                 'convergence messages')
         self.options.add_option('tol', 1e-6, lower=1e-15, upper=1e-1,
                                 desc='Tolerance for termination.')
+        self.options.add_option('nstall', 50, lower=5, 
+                                desc='Stall iterations for termination.')
 
         # GA options
         self.options.add_option('probability_of_crossover', 0.9, lower=0.0, upper=1.0,
                                 desc='Probability of mating between two individuals.')
-        self.options.add_option('probability_of_mutation', -1.0, lower=-np.inf, upper=1.0,
+        self.options.add_option('probability_of_mutation', 0.04, lower=-np.inf, upper=1.0,
                                 desc='Probability of mating between two individuals.  Negative input values mean 1/nvariables')
         self.options.add_option('crossover_index', 10.0, lower=0.0, upper=100.0,
                                 desc='Crossover index that describes degree of mixing')
@@ -78,9 +80,9 @@ class HeuristicDriver(Driver):
                                 desc='Mutation index that describes degree of deviation')
         
         # PSO options
-        self.options.add_option('cognitive_attraction', 0.5, lower=0.0, upper=5.0,
+        self.options.add_option('cognitive_attraction', 0.9, lower=0.0, upper=5.0,
                                 desc='Attraction of a particle to its personal best')
-        self.options.add_option('social_attraction', 0.7, lower=0.0, upper=5.0,
+        self.options.add_option('social_attraction', 2.0, lower=0.0, upper=5.0,
                                 desc='Attraction of a particle to the global swarm best')
         self.options.add_option('upper_inertia', 1.0, lower=0.0, upper=1.0,
                                 desc='Maximum particle inertia that resists velocity change')

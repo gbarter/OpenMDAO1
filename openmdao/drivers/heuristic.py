@@ -144,7 +144,7 @@ class Heuristic(object):
         objHistory = []
         conHistory = []
         iteration  = 1
-        nconverge  = 40
+        nconverge  = self.options['nstall']
         nround     = int( np.round(np.abs(np.log10(self.options['tol']))) )
 
         def convtest(x):

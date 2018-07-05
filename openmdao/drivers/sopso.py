@@ -66,7 +66,8 @@ class SOPSO(Heuristic):
             for n in range(self.npop):
                 x  = self.x[n][k]
                 xL = self.xlocal[n][k]
-
+                if xL is None: xL = x
+                
                 # Update velocity (can bound if want to)
                 self.velocity[n][k] += self.variables[k].velocity_update(x, xL, xG, cL, cG)
 
