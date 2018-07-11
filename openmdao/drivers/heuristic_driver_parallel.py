@@ -156,7 +156,7 @@ class HeuristicDriverParallel(HeuristicDriver, SOGA, SOPSO):
             except KeyError: continue
 
         # Determine penalty
-        coeff = 10.0 ** np.ceil( np.log10(np.abs(obj.min())) )
+        coeff = self.options['penalty_multiplier'] ** np.ceil( np.log10(np.abs(obj.min())) )
         total = obj + coeff*con
         
         return obj, con, total
