@@ -92,8 +92,8 @@ class Heuristic(object):
             self._load_restart()
         else:
             # Be sure initial state is included in population
-            self.x = self._generate_population(self.npop-1)
             self.x.append( self.xinit )
+            self.x.append( self._generate_population(self.npop-1) )
 
     
     def _evaluate_input(self, x):
