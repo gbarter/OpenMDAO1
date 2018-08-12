@@ -11,6 +11,7 @@ import numpy as np
 from heuristic import LOGNAME, LOGFILE
 from soga import SOGA
 from sopso import SOPSO
+from simplex import Simplex
 from variables import VariableChooser
 
 from openmdao.core.driver import Driver
@@ -19,7 +20,7 @@ from openmdao.util.record_util import create_local_meta, update_local_meta
 import logging
 import sys
 
-_optimizers = ['SOGA','SOPSO']
+_optimizers = ['SOGA','SOPSO','NM']
 
 class HeuristicDriver(Driver):
     """ Driver wrapper for the in-house single objective genetic algorithm (SOGA), 
@@ -54,7 +55,7 @@ class HeuristicDriver(Driver):
         self.options.add_option('optimizer', 'SOGA', values=_optimizers,
                                 desc='Name of optimizer to use')
         self.options.add_option('restart', False,
-                                desc='Whether to restart from previous soga.restart file')
+                                desc='Whether to restart from previous heuristic.restart file')
         self.options.add_option('penalty', True,
                                 desc='Whether to consider constraints as penalty on objective function')
         self.options.add_option('penalty_multiplier', 100.0, lower=0.0, upper=1e5,
@@ -217,9 +218,12 @@ class HeuristicDriver(Driver):
         elif self.options['optimizer'].lower() == 'sopso':
             optimizer = SOPSO(self.variables, x_init, self._model, self.options)
 
+        elif self.options['optimizer'].lower() == 'nm':
+            optimizer = Simplex(self.variables, x_init, self._model, self.options)
+
         else:
             raise ValueError('Unknown optimizer: '+self.options['optimizer']+
-                            '.  Valid options are SOGA or SOPSO')
+                            '.  Valid options are SOGA or SOPSO or NM')
 
         xresult, fmin, fcon = optimizer.optimize()
 

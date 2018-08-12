@@ -40,6 +40,8 @@ class Variable(object):
         self.acognitive = 0.5 # cognitive attractioin (local)
         self.asocial    = 1.25 # social attractioin (local)
         
+    def get_type(self):
+        raise NotImplementedError("Subclasses should implement this!")
     def sample_rand(self, npts):
         raise NotImplementedError("Subclasses should implement this!")
     def sample_lhc(self, npts):
@@ -65,6 +67,9 @@ class BooleanVariable(Variable):
     def __init__(self):
         super(BooleanVariable, self).__init__()
 
+    def get_type(self):
+        return type(True)
+    
     def sample_rand(self, npts):
         return (np.random.random((npts,)) > 0.5)
     
@@ -97,6 +102,9 @@ class FloatVariable(Variable):
     def __init__(self, low=None, high=None):
         super(FloatVariable, self).__init__(low=low, high=high)
         
+    def get_type(self):
+        return type(0.0)
+    
     def sample_rand(self, npts):
         return np.random.uniform(self.lower_bound, self.upper_bound, size=(npts,))
 
@@ -168,6 +176,9 @@ class FloatVariable(Variable):
 class IntegerVariable(Variable):
     def __init__(self, low=None, high=None):
         super(IntegerVariable, self).__init__(low=low, high=high)
+        
+    def get_type(self):
+        return type(0)
 
     def sample_rand(self, npts):
         return np.random.randint(self.lower_bound, self.upper_bound+1, size=(npts,))
