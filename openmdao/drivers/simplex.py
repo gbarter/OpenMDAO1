@@ -113,5 +113,9 @@ class Simplex(Heuristic):
         # Store Scipy ouput in unbounded space
         self.xglobal = self._itransformX( res.x ).tolist()
         self.objGlobal, self.conGlobal, _ = self._evaluate_input( [self.xglobal] )
-        return (self.xglobal, self.objGlobal[0], self.conGlobal[0])
+
+        # Final logging
+        self.x = self.xglobal[:]
+        self._write_restart()
         
+        return (self.xglobal, self.objGlobal[0], self.conGlobal[0])
