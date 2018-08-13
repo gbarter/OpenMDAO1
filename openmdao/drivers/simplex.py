@@ -25,10 +25,17 @@ class Simplex(Heuristic):
         
 
     def _initialize(self):
+        if self.options['restart']:
+            self._load_restart()
+            self.x = [self.x[0]]
+        else:
+            self.x = [self.xinit.tolist()]
+            
         # Initialize self variables
         icont = []
         LB    = []
         UB    = []
+        self.count = 0
 
         # Find continuous variables and their bounds
         for k in range(self.nvar):
@@ -43,8 +50,8 @@ class Simplex(Heuristic):
         self.icont = np.array( icont )
 
         # Return no-bounds versions of continuous variables
-        xcont      = self.xinit[self.icont]
-        x0 = self._transformX( xcont )
+        xcont = np.array( self.x[0][:] )[self.icont]
+        x0    = self._transformX( xcont )
         return x0
     
         
@@ -79,7 +86,12 @@ class Simplex(Heuristic):
     def _iterate(self):
         pass
 
-    
+    def _callback(self, xk):
+        self.count += 1
+        if self.count%100 == 0:
+            self.x = [ self._itransformX( xk ).tolist() ]
+            self._write_restart()          
+            
     def _myrun(self, x):
         # Convert to bounded space that assembly expects
         xrun = self._itransformX(x)
@@ -94,11 +106,12 @@ class Simplex(Heuristic):
         x0 = self._initialize()
         
         # Run Scipy Nelder-Mead simplex
-        res = optimize.minimize(self._myrun, x0, method='Nelder-Mead', tol=self.options['tol'],
-                                    options={'maxiter':self.options['generations'], 'disp':True})
+        res = optimize.minimize(self._myrun, x0, method='Nelder-Mead',
+                                tol=self.options['tol'], callback=self._callback,
+                                options={'maxiter':self.options['generations'], 'disp':True})
         
         # Store Scipy ouput in unbounded space
-        self.xglobal = self._itransformX( res.x ).tolist() # res
+        self.xglobal = self._itransformX( res.x ).tolist()
         self.objGlobal, self.conGlobal, _ = self._evaluate_input( [self.xglobal] )
         return (self.xglobal, self.objGlobal[0], self.conGlobal[0])
         
