@@ -113,7 +113,7 @@ class HeuristicDriverParallel(HeuristicDriver, SOGA, SOPSO, Simplex):
 
         # Simplex additions
         self.rho   =  1.0
-        if self.options['adaptive_simplex']
+        if self.options['adaptive_simplex']:
             self.chi   = 1.0  + 2.0/self.nvar
             self.psi   = 0.75 - 0.5/self.nvar
             self.sigma = 1.0  - 1.0/self.nvar

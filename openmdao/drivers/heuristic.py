@@ -54,12 +54,18 @@ class Heuristic(object):
         self.xglobal     = None
 
     def _generate_population(self, npop):
-        # Initialize container
-        x = np.inf * np.ones((npop, self.nvar))
-            
-        # Populate design variables with Latin Hypercube initialization
-        for k in range(self.nvar):
-            x[:,k] = self.variables[k].sample_lhc(npop)
+        
+        if self.options['global_search']:
+            # Populate design variables with Latin Hypercube initialization
+            x = np.inf * np.ones((npop, self.nvar))
+            for k in range(self.nvar):
+                x[:,k] = self.variables[k].sample_lhc(npop)
+                
+        else:
+            # Build simplex meant for neighborhood search (taken from scipy fmin)
+            x = np.tile( self.xinit, (npop, 1))
+            for k in range(self.nvar):
+                x[k,k] = self.variables[k].bound( 1.05 * x[k,k] if x[k,k] != 0.0 else 2.5e-4 )
                 
         return x.tolist()
 

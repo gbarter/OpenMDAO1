@@ -70,6 +70,8 @@ class HeuristicDriver(Driver):
                                 desc='Tolerance for termination.')
         self.options.add_option('nstall', 50, lower=5, 
                                 desc='Stall iterations for termination.')
+        self.options.add_option('global_search', True,
+                                desc='Whether to initialize for a global design space optimization or neighborhood search (when restart is False)')
 
         # GA options
         self.options.add_option('probability_of_crossover', 0.9, lower=0.0, upper=1.0,
