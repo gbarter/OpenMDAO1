@@ -6,6 +6,7 @@ from variables import Variable
 import time
 import logging
 import sys
+import os.path
 
 RSTFILE = 'heuristic.restart'
 LOGFILE = 'heuristic.log'
@@ -88,7 +89,7 @@ class Heuristic(object):
 
             
     def _initialize(self):
-        if self.options['restart']:
+        if self.options['restart'] and os.path.exists(RSTFILE):
             self._load_restart()
         else:
             # Be sure initial state is included in population
