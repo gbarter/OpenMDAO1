@@ -178,8 +178,7 @@ class Heuristic(object):
 
             # Population based check
             xarray = np.array( self.x )
-            if ( (np.max(xarray - xarray[0,np.newaxis,:]) <= tol) and
-                 (np.max(np.abs(self.obj[1:] - self.obj[0])) <= tol) and
+            if ( (np.max(np.abs(self.obj[1:] - self.obj[0])) <= tol) and
                  (np.max(np.abs(self.con[1:] - self.con[0])) <= tol) ):
                 break
             
