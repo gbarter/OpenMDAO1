@@ -62,6 +62,10 @@ class Variable(object):
     def bound(self, x):
         return np.maximum(np.minimum(x, self.upper_bound), self.lower_bound)
 
+    def simplex_point(self, xc, xe, c):
+        xnew = ( xc + c*(xc - xe) )
+        return self.bound(xnew)
+        
     
 class BooleanVariable(Variable):
     def __init__(self):
@@ -217,5 +221,7 @@ class IntegerVariable(Variable):
             dy = min(dy, du)
         y += dy
         return int(np.round(y))
-
     
+    def simplex_point(self, xc, xe, c):
+        xnew = super(IntegerVariable, self).simplex_point(xc, xe, c)
+        return int(np.round(xnew))

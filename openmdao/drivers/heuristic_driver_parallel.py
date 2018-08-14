@@ -11,11 +11,12 @@ from heuristic_driver import HeuristicDriver
 from heuristic import Heuristic, LOGNAME
 from soga import SOGA
 from sopso import SOPSO
+from simplex import Simplex
 import logging
 import multiprocessing as mp
 
 
-class HeuristicDriverParallel(HeuristicDriver, SOGA, SOPSO):
+class HeuristicDriverParallel(HeuristicDriver, SOGA, SOPSO, Simplex):
     """ Driver wrapper for the in-house single objective genetic algorithm (SOGA), 
     based on a matlab implementation of NSGA2.  Unique to this optimizer is the support 
     of continuous, discrete, and binary (boolean) design variables, in addition to 
@@ -68,6 +69,12 @@ class HeuristicDriverParallel(HeuristicDriver, SOGA, SOPSO):
         self.objLocal   = None
         self.totalLocal = None
         self.velocity   = None
+
+        # Simplex additions
+        self.rho   =  None
+        self.chi   =  None
+        self.psi   =  None
+        self.sigma =  None
         
         
     def __call__(self, c, mydict):
@@ -79,8 +86,13 @@ class HeuristicDriverParallel(HeuristicDriver, SOGA, SOPSO):
 
         
     def run(self, problem):
+        
         # Same prep as parent class
         self.xinit = self._prerun(problem)
+
+        # Override  settings
+        if self.options['optimizer'].lower() == 'nm':
+            self.options['penalty'] = True
 
         # Initialize design vector list of lists
         self.x = [[None]*self.nvar for n in range(self.npop)]
@@ -98,6 +110,12 @@ class HeuristicDriverParallel(HeuristicDriver, SOGA, SOPSO):
         self.objLocal   = np.inf * np.ones(self.npop)
         self.totalLocal = np.inf * np.ones(self.npop)
         self.velocity   = np.zeros( (self.npop, self.nvar) )
+
+        # Simplex additions
+        self.rho   = 1.0
+        self.chi   = 1.0  + 2.0/self.nvar
+        self.psi   = 0.75 - 0.5/self.nvar
+        self.sigma = 1.0  - 1.0/self.nvar
         
         # Optimize
         if self.options['optimizer'].lower() == 'soga':
@@ -106,12 +124,15 @@ class HeuristicDriverParallel(HeuristicDriver, SOGA, SOPSO):
         elif self.options['optimizer'].lower() == 'sopso':
             xresult, fmin, fcon = SOPSO.optimize(self)
 
+        elif self.options['optimizer'].lower() == 'nm':
+            xresult, fmin, fcon = Simplex.optimize(self)
+
         else:
             raise ValueError('Unknown optimizer: '+self.options['optimizer']+
-                            '.  Valid options are SOGA or SOPSO')
+                            '.  Valid options are SOGA or SOPSO or NM')
 
         # Store results locally
-        fmin,fcon = self._model(xresult)
+        fmin, fcon = self._model(xresult)
 
         # Process results (same as parent class)
         self._postrun(xresult, fmin, fcon)
@@ -134,8 +155,9 @@ class HeuristicDriverParallel(HeuristicDriver, SOGA, SOPSO):
         management than what a pool would offer though.
         '''
         # Initialize outputs
-        obj = np.inf * np.ones((self.npop,))
-        con = np.inf * np.ones((self.npop,))
+        nx  = len(x)
+        obj = np.inf * np.ones((nx,))
+        con = np.inf * np.ones((nx,))
 
         # Set-up parallel execution
         manager = mp.Manager()
@@ -143,13 +165,13 @@ class HeuristicDriverParallel(HeuristicDriver, SOGA, SOPSO):
         #num_procs = 3 #mp.cpu_count()
 
         temp = []
-        for c in range(self.npop):
+        for c in range(nx):
             self._unpack( x[c] )
             p = mp.Process(target=self, args=(c,results))
             temp.append( p )
             p.start()
         for p in temp: p.join()
-        for n in range(self.npop):
+        for n in range(nx):
             try:
                 obj[n] = results[n][0]
                 con[n] = results[n][1]
@@ -167,13 +189,15 @@ class HeuristicDriverParallel(HeuristicDriver, SOGA, SOPSO):
         if self.options['optimizer'].lower() == 'soga':
             SOGA._evaluate(self)
         else:
-            SOPSO._evaluate(self)
+            Heuristic._evaluate(self)
 
             
     def _iterate(self, k_iter):
         if self.options['optimizer'].lower() == 'soga':
             SOGA._iterate(self, k_iter)
-        else:
+        if self.options['optimizer'].lower() == 'sopso':
             SOPSO._iterate(self, k_iter)
+        else:
+            Simplex._iterate(self, k_iter)
 
     

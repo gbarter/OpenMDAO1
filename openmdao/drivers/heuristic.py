@@ -97,11 +97,13 @@ class Heuristic(object):
 
     
     def _evaluate_input(self, x):
+        
         # Initialize outputs
-        obj = np.inf * np.ones((self.npop,))
-        con = np.inf * np.ones((self.npop,))
+        nx  = len(x)
+        obj = np.inf * np.ones((nx,))
+        con = np.inf * np.ones((nx,))
 
-        for n in range(self.npop):
+        for n in range(nx):
             obj[n], con[n] = self.fmodel( x[n] )
 
         # Determine penalty
@@ -141,11 +143,12 @@ class Heuristic(object):
         
         # Iteration over generations
         ngen       = self.options['generations']
+        tol        = self.options['tol']
         objHistory = []
         conHistory = []
         iteration  = 1
         nconverge  = self.options['nstall']
-        nround     = int( np.round(np.abs(np.log10(self.options['tol']))) )
+        nround     = int( np.round(np.abs(np.log10(tol))) )
 
         def convtest(x):
             return (np.round(np.sum(np.diff(x[-nconverge:])), nround) == 0.0)
@@ -171,6 +174,13 @@ class Heuristic(object):
             # Check for convergence
             if ( (k_iter > nconverge) and
                  convtest(objHistory) and convtest(conHistory) ):
+                break
+
+            # Population based check
+            xarray = np.array( self.x )
+            if ( (np.max(xarray - xarray[0,np.newaxis,:]) <= tol) and
+                 (np.max(np.abs(self.obj[1:] - self.obj[0])) <= tol) and
+                 (np.max(np.abs(self.con[1:] - self.con[0])) <= tol) ):
                 break
             
 

@@ -170,8 +170,13 @@ class HeuristicDriver(Driver):
                 self.constraints[name] = 0.0
 
         # Check other options
-        if not (self.options['population']%2 == 0):
-            self.options['population'] += 1 # Need an even number for GA
+        if self.options['optimizer'].lower() == 'nm':
+            # Create simplex size
+            self.options['population'] = self.nvar + 1
+        else:
+            # Need an even population number for evolutionary
+            if not (self.options['population']%2 == 0):
+                self.options['population'] += 1 # Need an even number for GA
         self.npop = self.options['population']
         
         if self.options['probability_of_mutation'] < 0.0:
