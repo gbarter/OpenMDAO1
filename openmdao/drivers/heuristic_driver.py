@@ -65,8 +65,7 @@ class HeuristicDriver(Driver):
         self.options.add_option('generations', 200, lower=0.0,
                                 desc='Number of generations to evolve each design')
         self.options.add_option('disp', True,
-                                desc='Set to False to prevent printing of Scipy '
-                                'convergence messages')
+                                desc='Set to False to prevent printing of Scipy convergence messages')
         self.options.add_option('tol', 1e-6, lower=1e-15, upper=1e-1,
                                 desc='Tolerance for termination.')
         self.options.add_option('nstall', 50, lower=5, 
@@ -91,6 +90,10 @@ class HeuristicDriver(Driver):
                                 desc='Maximum particle inertia that resists velocity change')
         self.options.add_option('lower_inertia', 0.4, lower=0.0, upper=1.0,
                                 desc='Minimum particle inertia that resists velocity change')
+
+        # Nelder-Mead Simplex options
+        self.options.add_option('adaptive_simplex', True,
+                                desc='Set simplex modification constants based on problem dimensionality')
 
         self.variables = None
         self.nvar      = None

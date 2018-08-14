@@ -15,14 +15,14 @@ class Simplex(Heuristic):
 
         # Simplex adjustment constants
         self.rho   =  1.0
-        self.chi   =  2.0
-        self.psi   =  0.5
-        self.sigma =  0.5
-        if True: #False: #adaptive based on problem size
+        if self.options['adaptive_simplex']
             self.chi   = 1.0  + 2.0/self.nvar
             self.psi   = 0.75 - 0.5/self.nvar
             self.sigma = 1.0  - 1.0/self.nvar
-
+        else:
+            self.chi   =  2.0
+            self.psi   =  0.5
+            self.sigma =  0.5
 
     def _generate_point(self, coeff):
         xnew = [None] * self.nvar
