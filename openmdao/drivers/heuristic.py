@@ -67,11 +67,6 @@ class Heuristic(object):
             for k in range(self.nvar):
                 x[k,k] = 1.05 * x[k,k] if x[k,k] != 0.0 else 2.5e-4
 
-        # Make sure we're within bounds
-        for k in range(self.nvar):
-            x[:,k] = self.variables[k].bound( x[:,k] )
-                
-                
         return x.tolist()
 
     
@@ -107,7 +102,13 @@ class Heuristic(object):
             self.x = [self.xinit]
             self.x.extend( self._generate_population(self.npop-1) )
 
-    
+        # Make sure we're within bounds
+        x = np.array( self.x )
+        for k in range(self.nvar):
+            x[:,k] = self.variables[k].bound( x[:,k] )
+        self.x = x.tolist()
+                
+
     def _evaluate_input(self, x):
         
         # Initialize outputs
