@@ -185,7 +185,7 @@ class FloatVariable(Variable):
 
         dl = y - yl
         du = yu - y
-        dy = -p*dl if dl < du else p*dy
+        dy = -p*dl if dl < du else p*du
         
         y = y + dy
         return self.bound(y)
