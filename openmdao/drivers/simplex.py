@@ -14,15 +14,15 @@ class Simplex(Heuristic):
         self.options['penalty'] = True
 
         # Simplex adjustment constants
-        self.rho   =  1.0
+        self.rho   =  1.0 # alpha
         if self.options['adaptive_simplex']:
-            self.chi   = 1.0  + 2.0/self.nvar
-            self.psi   = 0.75 - 0.5/self.nvar
-            self.sigma = 1.0  - 1.0/self.nvar
+            self.chi   = 1.0  + 2.0/self.nvar # gamma
+            self.psi   = 0.75 - 0.5/self.nvar # beta
+            self.sigma = 1.0  - 1.0/self.nvar # delta
         else:
-            self.chi   =  2.0
-            self.psi   =  0.5
-            self.sigma =  0.5
+            self.chi   =  2.0 # gamma
+            self.psi   =  0.5 # beta
+            self.sigma =  0.5 # delta
 
 
     
@@ -93,8 +93,8 @@ class Simplex(Heuristic):
 
         
     def _iterate(self, kiter):
-        self._rank()
         self._update_simplex()
+        self._rank()
 
         # Store best designs
         self.xglobal     = self.x[0][:]
