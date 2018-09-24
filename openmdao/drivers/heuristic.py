@@ -65,7 +65,7 @@ class Heuristic(object):
             # Build simplex meant for neighborhood search (taken from scipy fmin)
             x = np.tile( self.xinit, (npop, 1))
             for k in range(self.nvar):
-                x[k,k] = 1.05 * x[k,k] if x[k,k] != 0.0 else 2.5e-4
+                x[k,k] = self.variables[k].perturb(x[k,k], 0.05)
 
         return x.tolist()
 

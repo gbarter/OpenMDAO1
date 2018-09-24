@@ -50,6 +50,8 @@ class Variable(object):
         raise NotImplementedError("Subclasses should implement this!")
     def mutate(self, x, eta_m):
         raise NotImplementedError("Subclasses should implement this!")
+    def perturb(self, x, p):
+        raise NotImplementedError("Subclasses should implement this!")
 
     def velocity_update(self, x, xL, xG, cL, cG):
         r  = np.random.random((2,1))
@@ -176,6 +178,19 @@ class FloatVariable(Variable):
         return self.bound(y)
 
     
+    def perturb(self, x, p):
+        y  = x
+        yl = self.lower_bound
+        yu = self.upper_bound
+
+        dl = y - yl
+        du = yu - y
+        dy = -p*dl if dl < du else p*dy
+        
+        y = y + dy
+        return self.bound(y)
+
+    
     
 class IntegerVariable(Variable):
     def __init__(self, low=None, high=None):
@@ -221,6 +236,21 @@ class IntegerVariable(Variable):
             dy = min(dy, du)
         y += dy
         return int(np.round(y))
+
+
+    
+    def perturb(self, x, p):
+        y  = x
+        yl = self.lower_bound
+        yu = self.upper_bound
+
+        dl = y - yl
+        du = yu - y
+        dy = -p*dl if dl < du else p*dy
+        
+        y = y + dy
+        return self.bound( int(np.round(y)) )
+
     
     def simplex_point(self, xc, xe, c):
         xnew = super(IntegerVariable, self).simplex_point(xc, xe, c)
