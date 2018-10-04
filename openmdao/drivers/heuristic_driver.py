@@ -61,7 +61,7 @@ class HeuristicDriver(Driver):
                                 desc='Whether to consider constraints as penalty on objective function')
         self.options.add_option('penalty_multiplier', 100.0, lower=0.0, upper=1e5,
                                 desc='How much worse if penalty than objective function')
-        self.options.add_option('population', 200, lower=2.0,
+        self.options.add_option('population', 200, lower=1.0,
                                 desc='Number of designs to carry through each generation')
         self.options.add_option('generations', 200, lower=0.0,
                                 desc='Number of generations to evolve each design')
@@ -181,6 +181,8 @@ class HeuristicDriver(Driver):
         if self.options['optimizer'].lower() == 'nm':
             # Create simplex size
             self.options['population'] = self.nvar + 1
+        elif self.options['optimizer'].lower() == 'subplex':
+            self.options['population'] = 1
         else:
             # Need an even population number for evolutionary
             if not (self.options['population']%2 == 0):

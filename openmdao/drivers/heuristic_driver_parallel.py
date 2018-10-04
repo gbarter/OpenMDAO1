@@ -12,11 +12,12 @@ from heuristic import Heuristic, LOGNAME
 from soga import SOGA
 from sopso import SOPSO
 from simplex import Simplex
+from subplex import Subplex
 import logging
 import multiprocessing as mp
 
 
-class HeuristicDriverParallel(HeuristicDriver, SOGA, SOPSO, Simplex):
+class HeuristicDriverParallel(HeuristicDriver, SOGA, SOPSO, Simplex, Subplex):
     """ Driver wrapper for the in-house single objective genetic algorithm (SOGA), 
     based on a matlab implementation of NSGA2.  Unique to this optimizer is the support 
     of continuous, discrete, and binary (boolean) design variables, in addition to 
@@ -71,10 +72,18 @@ class HeuristicDriverParallel(HeuristicDriver, SOGA, SOPSO, Simplex):
         self.velocity   = None
 
         # Simplex additions
-        self.rho   =  None
-        self.chi   =  None
-        self.psi   =  None
-        self.sigma =  None
+        self.alpha =  None
+        self.beta  =  None
+        self.gamma =  None
+        self.delta =  None
+
+        # Subplex additions
+        self.deltax    = None
+        self.psi       = None
+        self.omega     = None
+        self.nsmin     = None
+        self.nsmax     = None
+        self.step_size = None
         
         
     def __call__(self, c, mydict):
@@ -112,15 +121,25 @@ class HeuristicDriverParallel(HeuristicDriver, SOGA, SOPSO, Simplex):
         self.velocity   = np.zeros( (self.npop, self.nvar) )
 
         # Simplex additions
-        self.rho   =  1.0
+        self.alpha   =  1.0 # also rho: reflection
         if self.options['adaptive_simplex']:
-            self.chi   = 1.0  + 2.0/self.nvar
-            self.psi   = 0.75 - 0.5/self.nvar
-            self.sigma = 1.0  - 1.0/self.nvar
+            self.gamma = 1.0  + 2.0/self.nvar # also chi: expansion
+            self.beta  = 0.75 - 0.5/self.nvar # also psi: contraction
+            self.delta = 1.0  - 1.0/self.nvar # also sigma: shrinkage
         else:
-            self.chi   =  2.0
-            self.psi   =  0.5
-            self.sigma =  0.5
+            self.gamma =  2.0 # also chi: expansion
+            self.beta  =  0.5 # also psi: contraction
+            self.delta =  0.5 # also sigma: shrinkage
+
+        # Subplex additions
+        self.deltax    = np.zeros(len(self.xinit))
+        self.psi       = 0.25
+        self.omega     = 0.1
+        self.nsmin     = 2
+        self.nsmax     = 5
+        self.step_size = 1e-5*np.ones(self.nvar)#np.zeros(self.nvar)
+        #for k in range(self.nvar):
+        #    self.step_size[k] = self.variables[k].perturb(self.xinit[k], 5e-2) - self.xinit[k]
         
         # Optimize
         if self.options['optimizer'].lower() == 'soga':
@@ -131,6 +150,9 @@ class HeuristicDriverParallel(HeuristicDriver, SOGA, SOPSO, Simplex):
 
         elif self.options['optimizer'].lower() == 'nm':
             xresult, fmin, fcon = Simplex.optimize(self)
+
+        elif self.options['optimizer'].lower() == 'subplex':
+            xresult, fmin, fcon = Subplex.optimize(self)
 
         else:
             raise ValueError('Unknown optimizer: '+self.options['optimizer']+
@@ -200,9 +222,12 @@ class HeuristicDriverParallel(HeuristicDriver, SOGA, SOPSO, Simplex):
     def _iterate(self, k_iter):
         if self.options['optimizer'].lower() == 'soga':
             SOGA._iterate(self, k_iter)
-        if self.options['optimizer'].lower() == 'sopso':
+        elif self.options['optimizer'].lower() == 'sopso':
             SOPSO._iterate(self, k_iter)
-        else:
+        elif self.options['optimizer'].lower() == 'nm':
             Simplex._iterate(self, k_iter)
+        elif self.options['optimizer'].lower() == 'subplex':
+            Subplex._iterate(self, k_iter)
+
 
     

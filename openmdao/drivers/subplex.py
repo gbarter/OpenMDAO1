@@ -73,12 +73,12 @@ class Subplex(Heuristic):
         elif np.any(nsubs > self.nsmax):
             print('A subspace is too big!')
             badFlag = True
-        elif np.sum(np.unique(nsubs)) != self.nvar:
+        elif len(np.unique(allsubs)) != self.nvar:
             print('Missing a variable in the subspaces!',np.setdiff1d(np.unique(allsubs), np.arange(self.nvar)))
             badFlag = True
             
         if badFlag:
-            print(self.subspace)
+            print(self.subspaces)
             raise Exception('Subspace error')
         
         
@@ -129,7 +129,7 @@ class Subplex(Heuristic):
     def _set_stepsizes(self):
         # Set initial guesses of step scaling based on previous progress and number of subspaces
         if len(self.subspaces) > 1:
-            scale = np.norm(self.deltax, 1) / np.norm(self.step_size, 1)
+            scale = np.sum(np.abs(self.deltax)) / np.sum(np.abs(self.step_size))
         else:
             scale = self.psi
 
