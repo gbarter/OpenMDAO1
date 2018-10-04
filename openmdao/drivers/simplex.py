@@ -14,15 +14,15 @@ class Simplex(Heuristic):
         self.options['penalty'] = True
 
         # Simplex adjustment constants
-        self.rho   =  1.0 # alpha
+        self.alpha   =  1.0 # also rho: reflection
         if self.options['adaptive_simplex']:
-            self.chi   = 1.0  + 2.0/self.nvar # gamma
-            self.psi   = 0.75 - 0.5/self.nvar # beta
-            self.sigma = 1.0  - 1.0/self.nvar # delta
+            self.gamma = 1.0  + 2.0/self.nvar # also chi: expansion
+            self.beta  = 0.75 - 0.5/self.nvar # also psi: contraction
+            self.delta = 1.0  - 1.0/self.nvar # also sigma: shrinkage
         else:
-            self.chi   =  2.0 # gamma
-            self.psi   =  0.5 # beta
-            self.sigma =  0.5 # delta
+            self.gamma =  2.0 # also chi: expansion
+            self.beta  =  0.5 # also psi: contraction
+            self.delta =  0.5 # also sigma: shrinkage
 
 
     
@@ -37,7 +37,7 @@ class Simplex(Heuristic):
     def _shrink_simplex(self):
         xarray = np.array( self.x )
         xdiff  = xarray - xarray[0,np.newaxis,:]
-        xarray[1:,:] = xarray[0,np.newaxis,:] + self.sigma * xdiff[1:,:]
+        xarray[1:,:] = xarray[0,np.newaxis,:] + self.delta * xdiff[1:,:]
         self.x = xarray.tolist()
         self._evaluate()
 
@@ -48,7 +48,7 @@ class Simplex(Heuristic):
         self.xcentroid = xarray[:-1,:].mean(axis=0)
         
         # Reflection point
-        xreflect, f_r = self._generate_point(self.rho)
+        xreflect, f_r = self._generate_point(self.alpha)
 
         # Initialize simplex shrink trigger
         shrinkFlag = False
@@ -56,7 +56,7 @@ class Simplex(Heuristic):
         # Simplex logic
         if f_r < self.total[0]:
             # Check for expansion
-            xexpand, f_e = self._generate_point(self.chi)
+            xexpand, f_e = self._generate_point(self.gamma)
             if f_e < f_r:
                 self.x[-1]     = xexpand
                 self.total[-1] = f_e
@@ -71,7 +71,7 @@ class Simplex(Heuristic):
         else:
             if f_r < self.total[-1]:
                 # Outside contraction
-                xcont, f_c = self._generate_point(self.psi)
+                xcont, f_c = self._generate_point(self.beta)
                 if f_c <= f_r:
                     self.x[-1]     = xcont
                     self.total[-1] = f_c
@@ -80,7 +80,7 @@ class Simplex(Heuristic):
 
             else:
                 # Inside contraction
-                xcont, f_c = self._generate_point(-self.psi)
+                xcont, f_c = self._generate_point(-self.beta)
                 if f_c < self.total[-1]:
                     self.x[-1]     = xcont
                     self.total[-1] = f_c
@@ -98,9 +98,9 @@ class Simplex(Heuristic):
 
         # Store best designs
         self.xglobal     = self.x[0][:]
-        obj, con, total  = self._evaluate_input( [self.xglobal] )
-        self.objGlobal   = obj[0]
-        self.conGlobal   = con[0]
-        self.totalGlobal = total[0]
+        #obj, con, total  = self._evaluate_input( [self.xglobal] )
+        self.objGlobal   = self.obj[0]
+        self.conGlobal   = self.con[0]
+        self.totalGlobal = self.total[0]
         
         

@@ -27,7 +27,7 @@ class Heuristic(object):
 
         # Logging instance
         self.logger = logging.getLogger(LOGNAME)
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.INFO)
         
         # Save options (make sure population is even for pairing purposes)
         self.options = options
@@ -53,6 +53,10 @@ class Heuristic(object):
         self.totalGlobal = None
         self.xglobal     = None
 
+        # Ability for child algorithms to terminate optimization
+        self.terminateFlag = False
+
+        
     def _generate_population(self, npop):
         
         if self.options['global_search']:
@@ -64,8 +68,20 @@ class Heuristic(object):
         else:
             # Build simplex meant for neighborhood search (taken from scipy fmin)
             x = np.tile( self.xinit, (npop, 1))
+
+            xstep    = self.options['step_size']
+            stepFlag = False
+            if isinstance(xstep, list) or type(xstep) == type(np.array([])):
+                if len(xstep) != self.nvar:
+                    raise ValueError('Input step size must be same length as number of design variables')
+                else:
+                    stepFlag = True
+                    
             for k in range(self.nvar):
-                x[k,k] = self.variables[k].perturb(x[k,k], 0.05)
+                if stepFlag:
+                    x[k,k] += xstep[k]
+                else:
+                    x[k,k] = self.variables[k].perturb(x[k,k], xstep)
 
         return x.tolist()
 
@@ -100,7 +116,8 @@ class Heuristic(object):
         else:
             # Be sure initial state is included in population
             self.x = [self.xinit]
-            self.x.extend( self._generate_population(self.npop-1) )
+            if self.npop > 1:
+                self.x.extend( self._generate_population(self.npop-1) )
 
         # Make sure we're within bounds
         x = np.array( self.x )
@@ -161,11 +178,21 @@ class Heuristic(object):
         conHistory = []
         iteration  = 1
         nconverge  = self.options['nstall']
-        nround     = int( np.round(np.abs(np.log10(tol))) )
+        nround     = int( np.round(np.abs(np.log10(np.abs(tol)))) )
 
+        # Initial population/simplex diameter
+        xarray = np.array( self.x )
+        dists = np.zeros((self.npop, self.npop))
+        for i in range(self.npop):
+            for j in range(i,self.npop):
+                dists[i,j] = np.sum((xarray[i,:] - xarray[j,:])**2.0)
+        initDiam = dists.max()
+
+        # Stalling function to test for convergence
         def convtest(x):
             return (np.round(np.sum(np.diff(x[-nconverge:])), nround) == 0.0)
-
+        
+        # Optimization loop
         for k_iter in range(ngen):
             t = time.time()
         
@@ -184,15 +211,32 @@ class Heuristic(object):
 
             if (k_iter%10 == 0): self._write_restart()
 
+            # Check if algorithm set the termination flag for some reason
+            if self.terminateFlag:
+                self.logger.info('Algorithm termination!')
+                break
+            
             # Check for convergence
             if ( (k_iter > nconverge) and
                  convtest(objHistory) and convtest(conHistory) ):
+                self.logger.info('Stalling termination!')
                 break
 
-            # Population based check
+            # Population/vertex spacing based check- only used for subplex that sets a negative tolerance
             xarray = np.array( self.x )
-            if ( (np.max(np.abs(self.obj[1:] - self.obj[0])) <= tol) and
+            for i in range(self.npop):
+                for j in range(i,self.npop):
+                    dists[i,j] = np.sum((xarray[i,:] - xarray[j,:])**2.0)
+            idiam = dists.max()
+            if ( (self.npop > 1) and (idiam <= -tol*initDiam) ): 
+                self.logger.info('Population diversity termination!')
+                break
+            
+            # Functional similarity based check
+            if ( (self.npop > 1) and
+                 (np.max(np.abs(self.obj[1:] - self.obj[0])) <= tol) and
                  (np.max(np.abs(self.con[1:] - self.con[0])) <= tol) ):
+                self.logger.info('Functional diversity termination!')
                 break
             
 

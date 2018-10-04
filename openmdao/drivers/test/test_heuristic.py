@@ -1,6 +1,7 @@
 import numpy as np
 import numpy.testing as npt
 import unittest
+from openmdao.drivers.subplex import Subplex
 from openmdao.drivers.soga import SOGA
 from openmdao.drivers.sopso import SOPSO
 from openmdao.drivers.heuristic import Heuristic
@@ -25,6 +26,8 @@ class TestHeuristic(unittest.TestCase):
         self.options['tolerance'] = 1e-6
         self.options['restart'] = False
         self.options['penalty'] = False
+        self.options['global_search'] = True
+        self.options['penalty_multiplier'] = 1e2
         self.myheur = Heuristic(self.variables, [1/np.pi, 5], testObj, self.options)
 
     def testInit(self):
@@ -99,10 +102,12 @@ class TestSOGA(unittest.TestCase):
         self.options['tolerance'] = 1e-6
         self.options['restart'] = False
         self.options['penalty'] = False
+        self.options['global_search'] = True
         self.options['probability_of_crossover'] = 1.0
         self.options['probability_of_mutation'] = 1.0
         self.options['crossover_index'] = 10.0
         self.options['mutation_index'] = 20.0
+        self.options['penalty_multiplier'] = 1e2
         self.mysoga = SOGA(self.variables, [1/np.pi, 5], testObj, self.options)
 
     def testEval(self):
@@ -247,10 +252,12 @@ class TestSOPSO(unittest.TestCase):
         self.options['tolerance'] = 1e-6
         self.options['restart'] = False
         self.options['penalty'] = False
+        self.options['global_search'] = True
         self.options['upper_inertia'] = 1.0
         self.options['lower_inertia'] = 0.0
         self.options['cognitive_attraction'] = 1.0
         self.options['social_attraction'] = 1.0
+        self.options['penalty_multiplier'] = 1e2
         self.mypso = SOPSO(self.variables, [1/np.pi, 5], testObj, self.options)
 
     def testLocal(self):
@@ -273,13 +280,44 @@ class TestSOPSO(unittest.TestCase):
         self.assertIn(self.mypso.xglobal, self.mypso.x)
         
 
-        
+class TestSubplex(unittest.TestCase):
+    def setUp(self):
+        self.variables = []
+        for k in range(9):
+            self.variables.append( v.FloatVariable(-1.0, 1.0) )
+        self.options = {}
+        self.options['population'] = 1
+        self.options['generations'] = 2
+        self.options['tolerance'] = 1e-6
+        self.options['restart'] = False
+        self.options['penalty'] = False
+        self.options['penalty_multiplier'] = False
+        self.options['global_search'] = False
+        self.options['adaptive_simplex'] = False
+        self.options['penalty_multiplier'] = 1e2
+        self.mysub = Subplex(self.variables, np.random.random((9,)), testObj, self.options)
 
+    def testSubspaces(self):
+        # From Tom Rowan's thesis
+        self.mysub.deltax = np.array([0.7, -0.1, 0.0, 0.01, 1.1, -0.8, 0.2, -0.7, 0.0])
+        self.mysub._set_subspaces()
+        
+        self.assertEqual(len(self.mysub.subspaces), 3)
+        
+        for m in range(len(self.mysub.subspaces)):
+            self.mysub.subspaces[m].sort()
+            
+        self.assertEqual(self.mysub.subspaces[0], [0,4,5,7])
+        self.assertEqual(self.mysub.subspaces[1], [1,6])
+        self.assertEqual(self.mysub.subspaces[2], [2,3,8])
+
+        
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(TestHeuristic))
     suite.addTest(unittest.makeSuite(TestSOGA))
     suite.addTest(unittest.makeSuite(TestSOPSO))
+    suite.addTest(unittest.makeSuite(TestSubplex))
     return suite
 
 if __name__ == '__main__':

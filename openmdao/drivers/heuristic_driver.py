@@ -12,6 +12,7 @@ from heuristic import LOGNAME, LOGFILE
 from soga import SOGA
 from sopso import SOPSO
 from simplex import Simplex
+from subplex import Subplex
 from variables import VariableChooser
 
 from openmdao.core.driver import Driver
@@ -20,10 +21,10 @@ from openmdao.util.record_util import create_local_meta, update_local_meta
 import logging
 import sys
 
-_optimizers = ['SOGA','SOPSO','NM']
+_optimizers = ['SOGA','SOPSO','NM','SUBPLEX']
 
 class HeuristicDriver(Driver):
-    """ Driver wrapper for the in-house single objective genetic algorithm (SOGA), 
+    """ Driver wrapper for the in-house heuristic algorithms:single objective genetic algorithm (SOGA), 
     based on a matlab implementation of NSGA2.  Unique to this optimizer is the support 
     of continuous, discrete, and binary (boolean) design variables, in addition to 
     inequality and equality constraints.
@@ -66,7 +67,7 @@ class HeuristicDriver(Driver):
                                 desc='Number of generations to evolve each design')
         self.options.add_option('disp', True,
                                 desc='Set to False to prevent printing of Scipy convergence messages')
-        self.options.add_option('tol', 1e-6, lower=1e-15, upper=1e-1,
+        self.options.add_option('tol', 1e-6, upper=1e-1,
                                 desc='Tolerance for termination.')
         self.options.add_option('nstall', 50, lower=5, 
                                 desc='Stall iterations for termination.')
@@ -93,9 +94,11 @@ class HeuristicDriver(Driver):
         self.options.add_option('lower_inertia', 0.4, lower=0.0, upper=1.0,
                                 desc='Minimum particle inertia that resists velocity change')
 
-        # Nelder-Mead Simplex options
+        # Nelder-Mead Simplex and Subplex options
         self.options.add_option('adaptive_simplex', True,
                                 desc='Set simplex modification constants based on problem dimensionality')
+        self.options.add_option('step_size', 0.05,
+                                desc='Initial simplex sizing.  Scalar for fraction of design variable margin or vector for individual additions')
 
         self.variables = None
         self.nvar      = None
@@ -230,6 +233,9 @@ class HeuristicDriver(Driver):
 
         elif self.options['optimizer'].lower() == 'nm':
             optimizer = Simplex(self.variables, x_init, self._model, self.options)
+
+        elif self.options['optimizer'].lower() == 'subplex':
+            optimizer = Subplex(self.variables, x_init, self._model, self.options)
 
         else:
             raise ValueError('Unknown optimizer: '+self.options['optimizer']+
