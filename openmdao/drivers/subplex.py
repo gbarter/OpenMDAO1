@@ -129,9 +129,11 @@ class Subplex(Heuristic):
     def _set_stepsizes(self):
         # Set initial guesses of step scaling based on previous progress and number of subspaces
         if len(self.subspaces) > 1:
-            scale = np.sum(np.abs(self.deltax)) / np.sum(np.abs(self.step_size))
+            #scale = np.sum(np.abs(self.deltax)) / np.sum(np.abs(self.step_size))
+            scale = np.abs(self.deltax) / np.abs(self.step_size)
         else:
-            scale = self.psi
+            #scale = self.psi
+            scale = self.psi * np.ones(self.nvar)
 
         # Bound the scaling and set the initial step size estimate
         scale = np.minimum( np.maximum(scale, self.omega), 1/self.omega)
@@ -142,11 +144,10 @@ class Subplex(Heuristic):
         self.step_size = np.sign(self.deltax) * np.abs(step)
         self.step_size[ind] = -step[ind]
 
-
     def _termination_test(self):
         xarray = np.array( self.x[0] )
         option1 = np.abs(self.deltax / xarray)
-        option2 = np.abs(self.step_size / xarray)
+        option2 = np.abs(self.step_size * self.psi/ xarray)
         self.terminateFlag = np.maximum(option1, option2).max() <= self.options['tol']
 
 
@@ -155,6 +156,7 @@ class Subplex(Heuristic):
         self._subspace_simplex()
         self._set_stepsizes()
         self._termination_test()
+        self._evaluate()
 
         # Store best designs
         self.xglobal     = self.x[0][:]
