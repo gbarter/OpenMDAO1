@@ -89,8 +89,8 @@ class Subplex(Heuristic):
                     'penalty_multiplier':100,
                     'global_search':False,
                     'adaptive_simplex':False,
-                    'generations':500,
-                    'nstall':1000,
+                    'generations':200,
+                    'nstall':40,
                     'restart':False}
 
         # Save current 
