@@ -167,9 +167,13 @@ class Heuristic(object):
         # Setup
         self._initialize()
         self._evaluate()
+        self._rank()
 
         # Logging initialization
         self.logger.info('Iter\tTime\tObjective\t\tConstraint')
+        self.logger.info('0:\t0.0\t'+
+                         '{0:.6f}'.format(self.obj[0])+'\t\t'+
+                         '{0:.6f}'.format(self.con[0]))
         
         # Iteration over generations
         ngen       = self.options['generations']
@@ -204,7 +208,7 @@ class Heuristic(object):
             conHistory.append( self.conGlobal )
             
             # Logging
-            self.logger.info(str(k_iter)+':\t'+
+            self.logger.info(str(k_iter+1)+':\t'+
                              '{0:.3f}'.format(time.time() - t)+'\t'+
                              '{0:.6f}'.format(self.objGlobal)+'\t\t'+
                              '{0:.6f}'.format(self.conGlobal))
