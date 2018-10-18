@@ -59,7 +59,7 @@ class HeuristicDriver(Driver):
                                 desc='Whether to restart from previous heuristic.restart file')
         self.options.add_option('penalty', True,
                                 desc='Whether to consider constraints as penalty on objective function')
-        self.options.add_option('penalty_multiplier', 100.0, lower=0.0, upper=1e5,
+        self.options.add_option('penalty_multiplier', 100.0, lower=0.0, upper=1e16,
                                 desc='How much worse if penalty than objective function')
         self.options.add_option('population', 200, lower=1.0,
                                 desc='Number of designs to carry through each generation')
