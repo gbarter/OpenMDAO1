@@ -58,7 +58,6 @@ class Heuristic(object):
 
         
     def _generate_population(self, npop):
-        
         if self.options['global_search']:
             # Populate design variables with Latin Hypercube initialization
             x = np.inf * np.ones((npop, self.nvar))
@@ -117,14 +116,14 @@ class Heuristic(object):
             # Be sure initial state is included in population
             self.x = [self.xinit]
             if self.npop > 1:
-                self.x.extend( self._generate_population(self.npop-1) )
+                self.x = self.x + self._generate_population(self.npop-1)
 
         # Make sure we're within bounds
         x = np.array( self.x )
         for k in range(self.nvar):
             x[:,k] = self.variables[k].bound( x[:,k] )
         self.x = x.tolist()
-                
+
 
     def _evaluate_input(self, x):
         
@@ -187,6 +186,7 @@ class Heuristic(object):
         # Initial population/simplex diameter
         xarray = np.array( self.x )
         dists = np.zeros((self.npop, self.npop))
+        print(xarray.shape, self.npop)
         for i in range(self.npop):
             for j in range(i,self.npop):
                 dists[i,j] = np.sum((xarray[i,:] - xarray[j,:])**2.0)

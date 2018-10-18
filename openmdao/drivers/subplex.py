@@ -25,10 +25,6 @@ class Subplex(Heuristic):
         for k in range(self.nvar):
             self.step_size[k] = self.variables[k].perturb(xinit[k], 5e-2) - xinit[k]
 
-            
-    def _initialize(self):
-        Heuristic._initialize(self) # don't use super because of multiple inheritance confusion later
-        self.x = [self.x[0]] # Should be xinit if not restarting
 
         
     def _get_next_subspace(self, dxabs):

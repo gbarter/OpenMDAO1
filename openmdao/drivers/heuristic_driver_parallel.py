@@ -56,6 +56,7 @@ class HeuristicDriverParallel(HeuristicDriver, SOGA, SOPSO, Simplex, Subplex):
         self.conGlobal   = None
         self.objGlobal   = None
         self.totalGlobal = None
+        self.terminateFlag = False
 
         # SOGA additions
         self.xmate      = None
