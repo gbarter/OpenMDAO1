@@ -186,7 +186,6 @@ class Heuristic(object):
         # Initial population/simplex diameter
         xarray = np.array( self.x )
         dists = np.zeros((self.npop, self.npop))
-        print(xarray.shape, self.npop)
         for i in range(self.npop):
             for j in range(i,self.npop):
                 dists[i,j] = np.sum((xarray[i,:] - xarray[j,:])**2.0)
