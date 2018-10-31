@@ -10,9 +10,6 @@ class Simplex(Heuristic):
         # Size check
         assert self.npop == (self.nvar+1), 'Simplex size initialization error'
         
-        # Override Heuristic settings
-        self.options['penalty'] = True
-
         # Simplex adjustment constants
         self.alpha   =  1.0 # also rho: reflection
         if self.options['adaptive_simplex']:

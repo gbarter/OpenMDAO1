@@ -10,7 +10,6 @@ class Subplex(Heuristic):
         Heuristic.__init__(self, variables, xinit, model, options) # don't use super because of multiple inheritance confusion later
         
         # Override Heuristic settings
-        self.options['penalty'] = True
         self.npop = 1
 
         # Default values
@@ -18,7 +17,7 @@ class Subplex(Heuristic):
         self.psi       = 0.25
         self.omega     = 0.1
         self.nsmin     = 2
-        self.nsmax     = 5
+        self.nsmax     = 7
 
         # Default step size initialization for each variable
         self.step_size = np.zeros(self.nvar)
@@ -141,7 +140,8 @@ class Subplex(Heuristic):
         self.step_size[ind] = -step[ind]
 
     def _termination_test(self):
-        xarray = np.array( self.x[0] )
+        eps     = 1e-10
+        xarray  = np.array( self.x[0] ) + eps
         option1 = np.abs(self.deltax / xarray)
         option2 = np.abs(self.step_size * self.psi/ xarray)
         self.terminateFlag = np.maximum(option1, option2).max() <= self.options['tol']

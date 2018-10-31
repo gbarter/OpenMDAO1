@@ -56,6 +56,11 @@ class Heuristic(object):
         # Ability for child algorithms to terminate optimization
         self.terminateFlag = False
 
+        # If not using penalties, just set penalty multiplier to a very high number
+        if not self.options['penalty']:
+            self.options['penalty_multiplier'] = 1e30
+            self.options['penalty'] = True
+            
         
     def _generate_population(self, npop):
         if self.options['global_search']:
